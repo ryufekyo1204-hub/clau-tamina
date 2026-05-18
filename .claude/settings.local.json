@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:nimbalyst.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:simonwillison.net)",
+      "WebFetch(domain:www.loftlyy.com)",
+      "WebFetch(domain:beginswithai.com)",
+      "WebFetch(domain:anthropic.com)",
+      "WebFetch(domain:docs.waveterm.dev)",
+      "WebFetch(domain:berens.co)",
+      "Bash(gh api *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:colorswall.com)",
+      "WebFetch(domain:www.shadcn.io)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:claude.com)",
+      "WebFetch(domain:thenewstack.io)",
+      "WebFetch(domain:www.aidesigner.ai)",
+      "WebFetch(domain:marketplace.visualstudio.com)",
+      "Skill(update-config)"
+    ]
+  }
+}

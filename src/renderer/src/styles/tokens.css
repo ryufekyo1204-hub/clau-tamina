@@ -1,0 +1,70 @@
+:root {
+  /* === Base colors === */
+  --app-bg:           #000000;
+  --app-bg-surface:   #111110;
+  --app-bg-elevated:  #1c1c1a;
+  --app-bg-hover:     rgba(255, 255, 255, 0.06);
+  --app-bg-active:    rgba(255, 255, 255, 0.10);
+
+  /* === Text === */
+  --text-primary:   #f2ede4;
+  --text-secondary: #a09b95;
+  --text-muted:     #5a5550;
+  --text-inverse:   #000000;
+
+  /* === Accent: Anthropic orange === */
+  --accent:         #d97757;
+  --accent-hover:   #e8895a;
+  --accent-pressed: #c96442;
+  --accent-subtle:  rgba(217, 119, 87, 0.15);
+  --accent-glow:    0 0 14px rgba(217, 119, 87, 0.25);
+
+  /* === Status === */
+  --status-running: #58c142;
+  --status-error:   #e54d2e;
+  --status-warning: #e0b956;
+  --status-waiting: #53b4ea;
+  --status-done:    #5a5550;
+
+  /* === Borders === */
+  --border-subtle:  rgba(255, 255, 255, 0.07);
+  --border-default: rgba(255, 255, 255, 0.13);
+  --border-strong:  rgba(255, 255, 255, 0.22);
+  --border-accent:  rgba(217, 119, 87, 0.45);
+
+  /* === Shadows === */
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.85);
+
+  /* === Terminal === */
+  --term-background:      #000000;
+  --term-foreground:      #d3d7cf;
+  --term-black:           #000000;
+  --term-bright-black:    #727272;
+  --term-red:             #cc0000;
+  --term-bright-red:      #cc9d97;
+  --term-green:           #4e9a06;
+  --term-bright-green:    #a3dd97;
+  --term-yellow:          #c4a000;
+  --term-bright-yellow:   #cbcaaa;
+  --term-blue:            #3465a4;
+  --term-bright-blue:     #9ab6cb;
+  --term-magenta:         #bc3fbc;
+  --term-bright-magenta:  #cc8ecb;
+  --term-cyan:            #06989a;
+  --term-bright-cyan:     #b7b8cb;
+  --term-white:           #d0d0d0;
+  --term-bright-white:    #f0f0f0;
+
+  /* === Typography === */
+  --font-ui:      "Inter", system-ui, sans-serif;
+  --font-mono:    "Cascadia Code", "JetBrains Mono", "Consolas", monospace;
+  --font-display: "Poppins", "Inter", sans-serif;
+
+  --text-xs:   10px;
+  --text-sm:   11px;
+  --text-base: 13px;
+  --text-md:   14px;
+  --text-lg:   16px;
+}

@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "out/main",
+    "rootDir": "src/sdk-host",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/sdk-host/sdkHost.mts",
+    "src/sdk-host/electron-globals.d.ts"
+  ]
+}

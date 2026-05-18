@@ -1,0 +1,23 @@
+{
+  "appId": "com.clau-tamina.app",
+  "productName": "clau-tamina",
+  "directories": {
+    "buildResources": "resources",
+    "output": "dist"
+  },
+  "files": [
+    "out/**"
+  ],
+  "extraResources": [],
+  "win": {
+    "target": ["nsis"],
+    "artifactName": "${productName}-${version}-setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "clau-tamina"
+  }
+}
