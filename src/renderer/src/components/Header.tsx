@@ -8,7 +8,9 @@ interface HeaderProps {
 }
 
 export function Header({ totalCostUsd, onSettingsClick }: HeaderProps): React.ReactElement {
-  const { bypassPermissions, setBypassPermissions, totalInputTokens, totalOutputTokens } = useSessionStore()
+  const { bypassPermissions, setBypassPermissions, totalInputTokens, totalOutputTokens, parallelAgents } = useSessionStore()
+  const errorAgentCount = Object.values(parallelAgents).filter((a) => a.status === 'error').length
+  const runningAgentCount = Object.values(parallelAgents).filter((a) => a.status === 'running').length
 
   const formatCost = (usd: number): string =>
     usd < 0.001 ? '$0.000' : `$${usd.toFixed(3)}`
@@ -34,6 +36,41 @@ export function Header({ totalCostUsd, onSettingsClick }: HeaderProps): React.Re
       </div>
 
       <div className="header-right">
+        {errorAgentCount > 0 && (
+          <span
+            style={{
+              background: 'var(--status-error)',
+              borderRadius: '999px',
+              padding: '1px 6px',
+              fontSize: 'var(--text-xs)',
+              color: '#fff',
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 700,
+              cursor: 'default'
+            }}
+            title={`エラー中のエージェント: ${errorAgentCount}`}
+          >
+            ✗ {errorAgentCount}
+          </span>
+        )}
+        {runningAgentCount > 0 && (
+          <span
+            style={{
+              background: 'rgba(88,193,66,0.15)',
+              border: '1px solid var(--status-running)',
+              borderRadius: '999px',
+              padding: '1px 6px',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--status-running)',
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 700,
+              cursor: 'default'
+            }}
+            title={`実行中のエージェント: ${runningAgentCount}`}
+          >
+            ⚙ {runningAgentCount}
+          </span>
+        )}
         <span
           className="header-tokens"
           title={`入力: ${totalInputTokens.toLocaleString()} / 出力: ${totalOutputTokens.toLocaleString()} tokens`}

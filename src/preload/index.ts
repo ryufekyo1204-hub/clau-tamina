@@ -6,6 +6,14 @@ export interface ApiSettings {
   windowBounds: { width: number; height: number; x?: number; y?: number }
   splitRatio: number
   currentWorkingDir: string
+  quakeHotkey: string
+}
+
+export interface ProcessEntry {
+  name: string
+  pid: number
+  cpu: number
+  mem: number
 }
 
 export interface SdkMessage {
@@ -101,7 +109,10 @@ const api = {
   deleteSession: (id: string): Promise<void> => ipcRenderer.invoke('session:delete', id),
 
   // File system
-  listDirectory: (dirPath: string): Promise<FileEntry[]> => ipcRenderer.invoke('fs:list-dir', dirPath)
+  listDirectory: (dirPath: string): Promise<FileEntry[]> => ipcRenderer.invoke('fs:list-dir', dirPath),
+
+  // Process list
+  listProcesses: (): Promise<ProcessEntry[]> => ipcRenderer.invoke('process:list')
 }
 
 contextBridge.exposeInMainWorld('api', api)

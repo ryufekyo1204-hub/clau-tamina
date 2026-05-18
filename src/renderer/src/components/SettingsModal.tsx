@@ -6,7 +6,7 @@ interface SettingsModalProps {
   onClose: () => void
 }
 
-type SettingsTab = 'terminal' | 'workspace'
+type SettingsTab = 'terminal' | 'workspace' | 'general'
 
 export function SettingsModal({ open, onClose }: SettingsModalProps): React.ReactElement | null {
   const {
@@ -21,6 +21,18 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   } = useSessionStore()
   const [activeTab, setActiveTab] = useState<SettingsTab>('terminal')
   const [cwdInput, setCwdInput] = useState(currentWorkingDir)
+  const [quakeHotkey, setQuakeHotkey] = useState('Ctrl+Alt+T')
+  const [hotkeyInput, setHotkeyInput] = useState('')
+  const [hotkeyEditing, setHotkeyEditing] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      window.api.getSettings().then((s) => {
+        setQuakeHotkey(s.quakeHotkey ?? 'Ctrl+Alt+T')
+        setHotkeyInput(s.quakeHotkey ?? 'Ctrl+Alt+T')
+      })
+    }
+  }, [open])
 
   // Sync input when currentWorkingDir is updated externally (e.g. from FileTreePane)
   useEffect(() => {
@@ -28,6 +40,14 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   }, [currentWorkingDir])
 
   if (!open) return null
+
+  const handleHotkeyApply = async () => {
+    const trimmed = hotkeyInput.trim()
+    if (!trimmed) return
+    await window.api.setSetting('quakeHotkey', trimmed)
+    setQuakeHotkey(trimmed)
+    setHotkeyEditing(false)
+  }
 
   const handleCwdApply = () => {
     const trimmed = cwdInput.trim()
@@ -103,7 +123,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
             background: 'var(--app-bg-surface)'
           }}
         >
-          {(['terminal', 'workspace'] as SettingsTab[]).map((tab) => (
+          {(['terminal', 'workspace', 'general'] as SettingsTab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -120,7 +140,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                 transition: 'color 0.15s, border-color 0.15s'
               }}
             >
-              {tab === 'terminal' ? 'ターミナル' : 'ワークスペース'}
+              {tab === 'terminal' ? 'ターミナル' : tab === 'workspace' ? 'ワークスペース' : '全般'}
             </button>
           ))}
         </div>
@@ -238,6 +258,121 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                   style={{ width: '100%', accentColor: 'var(--accent)' } as React.CSSProperties}
                 />
               </label>
+            </div>
+          )}
+
+          {activeTab === 'general' && (
+            <div>
+              <div
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--accent)',
+                  fontWeight: 700,
+                  letterSpacing: '0.8px',
+                  textTransform: 'uppercase',
+                  marginBottom: '14px',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                Quake Mode
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  グローバルホットキー（ウィンドウ表示/非表示）
+                </div>
+                {hotkeyEditing ? (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      type="text"
+                      value={hotkeyInput}
+                      onChange={(e) => setHotkeyInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { void handleHotkeyApply() } else if (e.key === 'Escape') setHotkeyEditing(false) }}
+                      placeholder="例: Ctrl+Alt+T"
+                      autoFocus
+                      style={{
+                        flex: 1,
+                        padding: '6px 8px',
+                        background: 'var(--app-bg)',
+                        border: '1px solid var(--border-accent)',
+                        borderRadius: '6px',
+                        color: 'var(--text-primary)',
+                        fontSize: 'var(--text-sm)',
+                        fontFamily: 'var(--font-mono)',
+                        outline: 'none'
+                      }}
+                    />
+                    <button
+                      onClick={() => { void handleHotkeyApply() }}
+                      style={{
+                        padding: '6px 12px',
+                        background: 'var(--accent-subtle)',
+                        border: '1px solid var(--border-accent)',
+                        borderRadius: '6px',
+                        color: 'var(--accent)',
+                        fontSize: 'var(--text-sm)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-ui)',
+                        flexShrink: 0
+                      }}
+                    >
+                      適用
+                    </button>
+                    <button
+                      onClick={() => setHotkeyEditing(false)}
+                      style={{
+                        padding: '6px 10px',
+                        background: 'transparent',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '6px',
+                        color: 'var(--text-muted)',
+                        fontSize: 'var(--text-sm)',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-ui)',
+                        flexShrink: 0
+                      }}
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <code
+                      style={{
+                        padding: '4px 10px',
+                        background: 'var(--app-bg)',
+                        border: '1px solid var(--border-default)',
+                        borderRadius: '6px',
+                        color: 'var(--text-primary)',
+                        fontSize: 'var(--text-sm)',
+                        fontFamily: 'var(--font-mono)'
+                      }}
+                    >
+                      {quakeHotkey}
+                    </code>
+                    <button
+                      onClick={() => { setHotkeyInput(quakeHotkey); setHotkeyEditing(true) }}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'transparent',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '6px',
+                        color: 'var(--text-secondary)',
+                        fontSize: 'var(--text-xs)',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-ui)'
+                      }}
+                    >
+                      変更
+                    </button>
+                  </div>
+                )}
+                <div style={{ marginTop: '6px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                  他のアプリ使用中でもこのキーでウィンドウを瞬時に呼び出せます。<br />
+                  形式: Ctrl+Alt+T / Ctrl+Shift+Space など
+                </div>
+              </div>
             </div>
           )}
 

@@ -1,7 +1,14 @@
 import React, { useState } from 'react'
 import { FileTreePane } from './FileTreePane'
+import { ProcessViewer } from './ProcessViewer'
 
-type LeftTab = 'terminal' | 'files'
+type LeftTab = 'terminal' | 'files' | 'processes'
+
+const TAB_LABEL: Record<LeftTab, string> = {
+  terminal: 'ターミナル',
+  files: 'ファイル',
+  processes: 'プロセス'
+}
 
 interface LeftPanelProps {
   terminalPane: React.ReactNode
@@ -22,12 +29,12 @@ export function LeftPanel({ terminalPane }: LeftPanelProps): React.ReactElement 
           background: 'var(--app-bg)'
         }}
       >
-        {(['terminal', 'files'] as LeftTab[]).map((tab) => (
+        {(['terminal', 'files', 'processes'] as LeftTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={{
-              padding: '0 16px',
+              padding: '0 14px',
               height: '100%',
               background: 'transparent',
               border: 'none',
@@ -41,7 +48,7 @@ export function LeftPanel({ terminalPane }: LeftPanelProps): React.ReactElement 
               transition: 'color 0.15s, border-color 0.15s'
             }}
           >
-            {tab === 'terminal' ? 'ターミナル' : 'ファイル'}
+            {TAB_LABEL[tab]}
           </button>
         ))}
       </div>
@@ -61,6 +68,16 @@ export function LeftPanel({ terminalPane }: LeftPanelProps): React.ReactElement 
         }}
       >
         <FileTreePane />
+      </div>
+      <div
+        style={{
+          flex: 1,
+          overflow: 'hidden',
+          display: activeTab === 'processes' ? 'flex' : 'none',
+          flexDirection: 'column'
+        }}
+      >
+        {activeTab === 'processes' && <ProcessViewer />}
       </div>
     </div>
   )

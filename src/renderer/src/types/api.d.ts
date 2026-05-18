@@ -3,6 +3,14 @@ export interface ApiSettings {
   windowBounds: { width: number; height: number; x?: number; y?: number }
   splitRatio: number
   currentWorkingDir: string
+  quakeHotkey: string
+}
+
+export interface ProcessEntry {
+  name: string
+  pid: number
+  cpu: number
+  mem: number
 }
 
 export interface SdkMessage {
@@ -70,6 +78,7 @@ interface ClauTaminaApi {
   deleteSession(id: string): Promise<void>
 
   listDirectory(dirPath: string): Promise<FileEntry[]>
+  listProcesses(): Promise<ProcessEntry[]>
 }
 
 declare global {

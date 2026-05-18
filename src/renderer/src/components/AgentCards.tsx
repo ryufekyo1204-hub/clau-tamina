@@ -8,10 +8,22 @@ const STATUS_COLOR: Record<ParallelAgent['status'], string> = {
   error: 'var(--status-error)'
 }
 
+const STATUS_BG: Record<ParallelAgent['status'], string> = {
+  running: 'rgba(88,193,66,0.12)',
+  done: 'rgba(90,85,80,0.15)',
+  error: 'rgba(229,77,46,0.15)'
+}
+
+const STATUS_ICON: Record<ParallelAgent['status'], string> = {
+  running: '⚙',
+  done: '✓',
+  error: '✗'
+}
+
 const STATUS_LABEL: Record<ParallelAgent['status'], string> = {
-  running: '⚙ 実行中',
-  done: '✅ 完了',
-  error: '✗ エラー'
+  running: '実行中',
+  done: '完了',
+  error: 'エラー'
 }
 
 function AgentCard({
@@ -66,29 +78,34 @@ function AgentCard({
         </button>
       )}
 
-      {/* Card header: status dot + label */}
+      {/* Card header: pill badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
         <span
           style={{
-            width: '7px',
-            height: '7px',
-            borderRadius: '50%',
-            background: STATUS_COLOR[agent.status],
-            flexShrink: 0,
-            display: 'inline-block'
-          }}
-        />
-        <span
-          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '2px 8px',
+            borderRadius: '999px',
+            background: STATUS_BG[agent.status],
+            border: `1px solid ${STATUS_COLOR[agent.status]}`,
             fontSize: 'var(--text-xs)',
             color: STATUS_COLOR[agent.status],
             fontFamily: 'var(--font-mono)',
-            fontWeight: 600
+            fontWeight: 600,
+            animation: agent.status === 'running' ? 'badge-pulse 2s ease-in-out infinite' : 'none'
           }}
         >
+          <span style={{ fontSize: '9px' }}>{STATUS_ICON[agent.status]}</span>
           {STATUS_LABEL[agent.status]}
         </span>
       </div>
+      <style>{`
+        @keyframes badge-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
+      `}</style>
 
       {/* Prompt (truncated as summary) */}
       <div

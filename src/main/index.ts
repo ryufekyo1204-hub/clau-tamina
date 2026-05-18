@@ -1,7 +1,11 @@
-import { app, BrowserWindow, ipcMain, shell, utilityProcess } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, shell, utilityProcess } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { readdir, stat } from 'fs/promises'
+import { exec } from 'child_process'
+import { promisify } from 'util'
+
+const execAsync = promisify(exec)
 import { config as loadDotenv } from 'dotenv'
 import { saveSession, loadSession, listSessions, deleteSession } from './sessions'
 
@@ -25,13 +29,15 @@ interface Settings {
   windowBounds: { width: number; height: number; x?: number; y?: number }
   splitRatio: number
   currentWorkingDir: string
+  quakeHotkey: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
   bypassPermissions: true,
   windowBounds: { width: 1280, height: 800 },
   splitRatio: 0.55,
-  currentWorkingDir: process.env.USERPROFILE ?? 'C:\\Users'
+  currentWorkingDir: process.env.USERPROFILE ?? 'C:\\Users',
+  quakeHotkey: 'Ctrl+Alt+T'
 }
 
 function loadSettings(): Settings {
@@ -62,6 +68,23 @@ let ptyProcess: UtilProc | null = null
 let sdkProcess: UtilProc | null = null
 let settings = loadSettings()
 let sdkQueryId = 0
+
+function registerQuakeHotkey(hotkey: string): void {
+  try {
+    globalShortcut.unregisterAll()
+    globalShortcut.register(hotkey, () => {
+      if (!mainWindow) return
+      if (mainWindow.isVisible() && mainWindow.isFocused()) {
+        mainWindow.hide()
+      } else {
+        mainWindow.show()
+        mainWindow.focus()
+      }
+    })
+  } catch {
+    // Invalid hotkey format — silently ignore
+  }
+}
 
 function createWindow(): BrowserWindow {
   const { windowBounds } = settings
@@ -228,15 +251,46 @@ ipcMain.handle('fs:list-dir', async (_, dirPath: string) => {
 ipcMain.handle('settings:get', () => settings)
 
 ipcMain.handle('settings:set', (_, key: string, value: unknown) => {
-  (settings as Record<string, unknown>)[key] = value
+  if (key === 'quakeHotkey' && typeof value === 'string') {
+    registerQuakeHotkey(value)
+  }
+  ;(settings as Record<string, unknown>)[key] = value
   saveSettings(settings)
   return settings
+})
+
+// IPC handler — Process list (Windows PowerShell)
+interface ProcessEntry {
+  name: string
+  pid: number
+  cpu: number
+  mem: number
+}
+
+ipcMain.handle('process:list', async (): Promise<ProcessEntry[]> => {
+  try {
+    const cmd =
+      'powershell.exe -NoProfile -NonInteractive -Command ' +
+      '"Get-Process | Select-Object ' +
+      "@{n='name';e={$_.Name}}," +
+      "@{n='pid';e={$_.Id}}," +
+      "@{n='cpu';e={[Math]::Round($_.CPU,2)}}," +
+      "@{n='mem';e={[Math]::Round($_.WorkingSet64/1MB,1)}} " +
+      '| Sort-Object cpu -Descending | Select-Object -First 40 ' +
+      '| ConvertTo-Json -Compress -AsArray"'
+    const { stdout } = await execAsync(cmd, { timeout: 6000 })
+    const parsed = JSON.parse(stdout.trim())
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
 })
 
 app.whenReady().then(() => {
   mainWindow = createWindow()
   startPtyHost()
   startSdkHost()
+  registerQuakeHotkey(settings.quakeHotkey)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -246,6 +300,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  globalShortcut.unregisterAll()
   ptyProcess?.kill()
   sdkProcess?.kill()
   if (process.platform !== 'darwin') {
