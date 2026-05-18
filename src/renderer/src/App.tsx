@@ -42,6 +42,7 @@ import { AgentCards } from './components/AgentCards'
 import { SettingsModal } from './components/SettingsModal'
 import { BrowserPane } from './components/BrowserPane'
 import { RightPanel } from './components/RightPanel'
+import { LeftPanel } from './components/LeftPanel'
 import { useSessionStore } from './store/session'
 
 export function App(): React.ReactElement {
@@ -77,7 +78,11 @@ export function App(): React.ReactElement {
         <Header totalCostUsd={totalCostUsd} onSettingsClick={() => setSettingsOpen(true)} />
       </ErrorBoundary>
       <SplitLayout
-        left={<ErrorBoundary><TerminalPane /></ErrorBoundary>}
+        left={
+          <ErrorBoundary>
+            <LeftPanel terminalPane={<TerminalPane />} />
+          </ErrorBoundary>
+        }
         right={
           <ErrorBoundary>
             <RightPanel

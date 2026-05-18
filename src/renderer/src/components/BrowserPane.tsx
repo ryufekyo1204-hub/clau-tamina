@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect, useCallback } from 'react'
 
 // Extend JSX to allow webview element
 declare global {
@@ -16,15 +16,38 @@ declare global {
   }
 }
 
+interface Favorite {
+  title: string
+  url: string
+}
+
+const FAVORITES_KEY = 'clau-tamina:browser-favorites'
+
+function loadFavorites(): Favorite[] {
+  try {
+    return JSON.parse(localStorage.getItem(FAVORITES_KEY) ?? '[]') as Favorite[]
+  } catch {
+    return []
+  }
+}
+
+function saveFavorites(favs: Favorite[]): void {
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs))
+}
+
 export function BrowserPane(): React.ReactElement {
   // Start blank — avoid auto-loading URLs that require auth
   const [url, setUrl] = useState('about:blank')
   const [inputUrl, setInputUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [favorites, setFavorites] = useState<Favorite[]>(loadFavorites)
+  const [showFavMenu, setShowFavMenu] = useState(false)
+  const [pageTitle, setPageTitle] = useState('')
   const webviewRef = useRef<HTMLElement>(null)
+  const favMenuRef = useRef<HTMLDivElement>(null)
 
-  const navigate = (target: string): void => {
+  const navigate = useCallback((target: string): void => {
     let href = target.trim()
     if (!href) return
     if (!href.startsWith('http://') && !href.startsWith('https://') && !href.includes('://')) {
@@ -34,7 +57,7 @@ export function BrowserPane(): React.ReactElement {
     setInputUrl(href)
     const wv = webviewRef.current as any
     if (wv) wv.src = href
-  }
+  }, [])
 
   const goBack = (): void => {
     const wv = webviewRef.current as any
@@ -50,6 +73,36 @@ export function BrowserPane(): React.ReactElement {
     const wv = webviewRef.current as any
     wv?.reload()
   }
+
+  const addFavorite = (): void => {
+    if (!url || url === 'about:blank') return
+    const title = pageTitle || url
+    const exists = favorites.some((f) => f.url === url)
+    if (exists) return
+    const next = [{ title, url }, ...favorites]
+    setFavorites(next)
+    saveFavorites(next)
+  }
+
+  const removeFavorite = (favUrl: string): void => {
+    const next = favorites.filter((f) => f.url !== favUrl)
+    setFavorites(next)
+    saveFavorites(next)
+  }
+
+  const isCurrentFavorited = favorites.some((f) => f.url === url)
+
+  // Close favorites menu when clicking outside
+  useEffect(() => {
+    if (!showFavMenu) return
+    const handler = (e: MouseEvent) => {
+      if (favMenuRef.current && !favMenuRef.current.contains(e.target as Node)) {
+        setShowFavMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showFavMenu])
 
   useEffect(() => {
     const wv = webviewRef.current
@@ -71,12 +124,17 @@ export function BrowserPane(): React.ReactElement {
       setLoadError(err.errorDescription ?? 'ページを読み込めませんでした')
       setIsLoading(false)
     }
+    const handleTitleUpdate = (e: Event): void => {
+      const titleEvent = e as CustomEvent & { title?: string }
+      if (titleEvent.title) setPageTitle(titleEvent.title)
+    }
 
     wv.addEventListener('did-navigate', handleNavigate)
     wv.addEventListener('did-navigate-in-page', handleNavigate)
     wv.addEventListener('did-start-loading', handleLoadStart)
     wv.addEventListener('did-stop-loading', handleLoadStop)
     wv.addEventListener('did-fail-load', handleLoadFail)
+    wv.addEventListener('page-title-updated', handleTitleUpdate)
 
     return () => {
       wv.removeEventListener('did-navigate', handleNavigate)
@@ -84,6 +142,7 @@ export function BrowserPane(): React.ReactElement {
       wv.removeEventListener('did-start-loading', handleLoadStart)
       wv.removeEventListener('did-stop-loading', handleLoadStop)
       wv.removeEventListener('did-fail-load', handleLoadFail)
+      wv.removeEventListener('page-title-updated', handleTitleUpdate)
     }
   }, [])
 
@@ -150,6 +209,95 @@ export function BrowserPane(): React.ReactElement {
             outline: 'none',
           }}
         />
+        {/* Favorite toggle star */}
+        <button
+          onClick={addFavorite}
+          style={{
+            ...navBtnStyle,
+            color: isCurrentFavorited ? 'var(--accent)' : 'var(--text-muted)',
+            fontSize: '14px'
+          }}
+          title={isCurrentFavorited ? 'お気に入り済み' : 'お気に入りに追加'}
+          disabled={url === 'about:blank'}
+        >
+          {isCurrentFavorited ? '★' : '☆'}
+        </button>
+        {/* Favorites dropdown */}
+        <div ref={favMenuRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowFavMenu((v) => !v)}
+            style={{ ...navBtnStyle, fontSize: '11px' }}
+            title="お気に入り一覧"
+          >
+            ≡
+          </button>
+          {showFavMenu && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 4px)',
+                right: 0,
+                width: '240px',
+                background: 'var(--app-bg-elevated)',
+                border: '1px solid var(--border-default)',
+                borderRadius: '8px',
+                boxShadow: 'var(--shadow-md)',
+                zIndex: 1000,
+                overflow: 'hidden'
+              }}
+            >
+              {favorites.length === 0 ? (
+                <div style={{ padding: '12px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
+                  お気に入りはありません
+                </div>
+              ) : (
+                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {favorites.map((fav) => (
+                    <div
+                      key={fav.url}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '7px 10px',
+                        gap: '6px',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => { navigate(fav.url); setShowFavMenu(false) }}
+                    >
+                      <span
+                        style={{
+                          flex: 1,
+                          fontSize: 'var(--text-sm)',
+                          color: 'var(--text-primary)',
+                          overflow: 'hidden',
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis'
+                        }}
+                        title={fav.url}
+                      >
+                        {fav.title}
+                      </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeFavorite(fav.url) }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          flexShrink: 0
+                        }}
+                        title="削除"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <button
           onClick={() => navigate('https://claude.ai')}
           style={navBtnStyle}

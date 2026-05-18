@@ -8,9 +8,12 @@ export interface ApiSettings {
 export interface SdkMessage {
   type: 'stream' | 'result' | 'tool-request' | 'error'
   id?: number
+  agentId?: string
   content?: string
   role?: string
   totalCostUsd?: number
+  inputTokens?: number
+  outputTokens?: number
   tool?: { name: string; input: unknown }
   error?: string
 }
@@ -37,6 +40,12 @@ export interface SessionSummary {
   updatedAt: number
 }
 
+export interface FileEntry {
+  name: string
+  isDir: boolean
+  path: string
+}
+
 interface ClauTaminaApi {
   ptyInput(data: string): void
   ptyResize(cols: number, rows: number): void
@@ -49,6 +58,8 @@ interface ClauTaminaApi {
   sdkToolResponse(approve: boolean): void
   onSdkMessage(cb: (msg: SdkMessage) => void): () => void
   onSdkToolRequest(cb: (tool: { name: string; input: unknown }) => void): () => void
+  sdkAgentQuery(agentId: string, prompt: string, options: Record<string, unknown>): void
+  onSdkAgentMessage(cb: (msg: SdkMessage & { agentId: string }) => void): () => void
 
   getSettings(): Promise<ApiSettings>
   setSetting(key: string, value: unknown): Promise<ApiSettings>
@@ -57,6 +68,8 @@ interface ClauTaminaApi {
   loadSession(id: string): Promise<SessionData | null>
   listSessions(): Promise<SessionSummary[]>
   deleteSession(id: string): Promise<void>
+
+  listDirectory(dirPath: string): Promise<FileEntry[]>
 }
 
 declare global {

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSessionStore } from '../store/session'
 
 interface SettingsModalProps {
@@ -6,11 +6,35 @@ interface SettingsModalProps {
   onClose: () => void
 }
 
+type SettingsTab = 'terminal' | 'workspace'
+
 export function SettingsModal({ open, onClose }: SettingsModalProps): React.ReactElement | null {
-  const { fontSizeTerminal, fontFamilyTerminal, setFontSizeTerminal, setFontFamilyTerminal } =
-    useSessionStore()
+  const {
+    fontSizeTerminal,
+    fontFamilyTerminal,
+    setFontSizeTerminal,
+    setFontFamilyTerminal,
+    currentWorkingDir,
+    setCwd,
+    splitRatio,
+    setSplitRatio
+  } = useSessionStore()
+  const [activeTab, setActiveTab] = useState<SettingsTab>('terminal')
+  const [cwdInput, setCwdInput] = useState(currentWorkingDir)
+
+  // Sync input when currentWorkingDir is updated externally (e.g. from FileTreePane)
+  useEffect(() => {
+    setCwdInput(currentWorkingDir)
+  }, [currentWorkingDir])
 
   if (!open) return null
+
+  const handleCwdApply = () => {
+    const trimmed = cwdInput.trim()
+    if (!trimmed) return
+    setCwd(trimmed)
+    window.api.setSetting('currentWorkingDir', trimmed)
+  }
 
   return (
     <div
@@ -28,7 +52,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '480px',
+          width: '500px',
           background: 'var(--app-bg-elevated)',
           border: '1px solid var(--border-default)',
           borderRadius: '12px',
@@ -71,89 +95,240 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
           </button>
         </div>
 
-        {/* Modal body */}
-        <div style={{ padding: '18px' }}>
-          {/* Section: ターミナル */}
-          <div style={{ marginBottom: '20px' }}>
-            <div
+        {/* Tab bar */}
+        <div
+          style={{
+            display: 'flex',
+            borderBottom: '1px solid var(--border-subtle)',
+            background: 'var(--app-bg-surface)'
+          }}
+        >
+          {(['terminal', 'workspace'] as SettingsTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
               style={{
-                fontSize: 'var(--text-xs)',
-                color: 'var(--accent)',
-                fontWeight: 700,
-                letterSpacing: '0.8px',
-                textTransform: 'uppercase',
-                marginBottom: '12px',
-                fontFamily: 'var(--font-mono)',
+                padding: '8px 16px',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
+                color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-muted)',
+                fontSize: 'var(--text-sm)',
+                fontWeight: activeTab === tab ? 600 : 400,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-ui)',
+                transition: 'color 0.15s, border-color 0.15s'
               }}
             >
-              ターミナル
-            </div>
+              {tab === 'terminal' ? 'ターミナル' : 'ワークスペース'}
+            </button>
+          ))}
+        </div>
 
-            {/* Font size */}
-            <label style={{ display: 'block', marginBottom: '12px' }}>
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}
-              >
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                  フォントサイズ
-                </span>
-                <span
-                  style={{
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--accent)',
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                >
-                  {fontSizeTerminal}px
-                </span>
-              </div>
-              <input
-                type="range"
-                min={12}
-                max={20}
-                step={1}
-                value={fontSizeTerminal}
-                onChange={(e) => setFontSizeTerminal(Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--accent)' } as React.CSSProperties}
-              />
-            </label>
-
-            {/* Font family */}
-            <label style={{ display: 'block' }}>
+        {/* Modal body */}
+        <div style={{ padding: '18px' }}>
+          {activeTab === 'terminal' && (
+            <div>
               <div
                 style={{
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-secondary)',
-                  marginBottom: '6px',
-                }}
-              >
-                フォントファミリー
-              </div>
-              <select
-                value={fontFamilyTerminal}
-                onChange={(e) => setFontFamilyTerminal(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '6px 8px',
-                  background: 'var(--app-bg)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '6px',
-                  color: 'var(--text-primary)',
-                  fontSize: 'var(--text-sm)',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--accent)',
+                  fontWeight: 700,
+                  letterSpacing: '0.8px',
+                  textTransform: 'uppercase',
+                  marginBottom: '14px',
                   fontFamily: 'var(--font-mono)',
                 }}
               >
-                <option value='"Cascadia Code", "Cascadia Mono", Consolas, monospace'>
-                  Cascadia Code
-                </option>
-                <option value='"JetBrains Mono", "Cascadia Code", Consolas, monospace'>
-                  JetBrains Mono
-                </option>
-                <option value='"Consolas", "Courier New", monospace'>Consolas</option>
-                <option value='"Fira Code", "Cascadia Code", monospace'>Fira Code</option>
-              </select>
-            </label>
-          </div>
+                ターミナル表示
+              </div>
+
+              {/* Font size */}
+              <label style={{ display: 'block', marginBottom: '16px' }}>
+                <div
+                  style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}
+                >
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                    フォントサイズ
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 'var(--text-sm)',
+                      color: 'var(--accent)',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    {fontSizeTerminal}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={10}
+                  max={22}
+                  step={1}
+                  value={fontSizeTerminal}
+                  onChange={(e) => setFontSizeTerminal(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: 'var(--accent)' } as React.CSSProperties}
+                />
+              </label>
+
+              {/* Font family */}
+              <label style={{ display: 'block', marginBottom: '16px' }}>
+                <div
+                  style={{
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--text-secondary)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  フォントファミリー
+                </div>
+                <select
+                  value={fontFamilyTerminal}
+                  onChange={(e) => setFontFamilyTerminal(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 8px',
+                    background: 'var(--app-bg)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: '6px',
+                    color: 'var(--text-primary)',
+                    fontSize: 'var(--text-sm)',
+                    fontFamily: 'var(--font-mono)',
+                    outline: 'none'
+                  }}
+                >
+                  <option value='"Cascadia Code", "Cascadia Mono", Consolas, monospace'>
+                    Cascadia Code
+                  </option>
+                  <option value='"JetBrains Mono", "Cascadia Code", Consolas, monospace'>
+                    JetBrains Mono
+                  </option>
+                  <option value='"Consolas", "Courier New", monospace'>Consolas</option>
+                  <option value='"Fira Code", "Cascadia Code", monospace'>Fira Code</option>
+                  <option value='"Hack", "Cascadia Code", monospace'>Hack</option>
+                </select>
+              </label>
+
+              {/* Split ratio */}
+              <label style={{ display: 'block' }}>
+                <div
+                  style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}
+                >
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                    左ペイン幅
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 'var(--text-sm)',
+                      color: 'var(--accent)',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    {Math.round(splitRatio * 100)}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={20}
+                  max={80}
+                  step={1}
+                  value={Math.round(splitRatio * 100)}
+                  onChange={(e) => setSplitRatio(Number(e.target.value) / 100)}
+                  style={{ width: '100%', accentColor: 'var(--accent)' } as React.CSSProperties}
+                />
+              </label>
+            </div>
+          )}
+
+          {activeTab === 'workspace' && (
+            <div>
+              <div
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--accent)',
+                  fontWeight: 700,
+                  letterSpacing: '0.8px',
+                  textTransform: 'uppercase',
+                  marginBottom: '14px',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                ワークスペース設定
+              </div>
+
+              {/* CWD */}
+              <div style={{ marginBottom: '16px' }}>
+                <div
+                  style={{
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--text-secondary)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  作業ディレクトリ（Claude AIが参照するCWD）
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="text"
+                    value={cwdInput}
+                    onChange={(e) => setCwdInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleCwdApply() }}
+                    placeholder="C:\Users\..."
+                    style={{
+                      flex: 1,
+                      padding: '6px 8px',
+                      background: 'var(--app-bg)',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: '6px',
+                      color: 'var(--text-primary)',
+                      fontSize: 'var(--text-sm)',
+                      fontFamily: 'var(--font-mono)',
+                      outline: 'none'
+                    }}
+                    onFocus={(e) => { e.target.style.borderColor = 'var(--border-accent)' }}
+                    onBlur={(e) => { e.target.style.borderColor = 'var(--border-default)' }}
+                  />
+                  <button
+                    onClick={handleCwdApply}
+                    style={{
+                      padding: '6px 12px',
+                      background: 'var(--accent-subtle)',
+                      border: '1px solid var(--border-accent)',
+                      borderRadius: '6px',
+                      color: 'var(--accent)',
+                      fontSize: 'var(--text-sm)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-ui)',
+                      flexShrink: 0
+                    }}
+                  >
+                    適用
+                  </button>
+                </div>
+                <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                  現在: {currentWorkingDir || '未設定'}
+                </div>
+              </div>
+
+              {/* Bypass permissions default */}
+              <div
+                style={{
+                  padding: '12px',
+                  background: 'var(--app-bg-surface)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-subtle)',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-muted)',
+                  lineHeight: '1.6'
+                }}
+              >
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>ヒント:</span>{' '}
+                権限モード（バイパス/通常）はヘッダーのトグルで切り替えできます。設定は次回起動時も維持されます。
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal footer */}

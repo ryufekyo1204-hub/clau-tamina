@@ -43,6 +43,12 @@ export interface SessionSummary {
   updatedAt: number
 }
 
+export interface FileEntry {
+  name: string
+  isDir: boolean
+  path: string
+}
+
 const api = {
   // PTY
   ptyInput: (data: string) => ipcRenderer.send('pty:input', data),
@@ -92,7 +98,10 @@ const api = {
   saveSession: (data: SessionData): Promise<void> => ipcRenderer.invoke('session:save', data),
   loadSession: (id: string): Promise<SessionData | null> => ipcRenderer.invoke('session:load', id),
   listSessions: (): Promise<SessionSummary[]> => ipcRenderer.invoke('session:list'),
-  deleteSession: (id: string): Promise<void> => ipcRenderer.invoke('session:delete', id)
+  deleteSession: (id: string): Promise<void> => ipcRenderer.invoke('session:delete', id),
+
+  // File system
+  listDirectory: (dirPath: string): Promise<FileEntry[]> => ipcRenderer.invoke('fs:list-dir', dirPath)
 }
 
 contextBridge.exposeInMainWorld('api', api)

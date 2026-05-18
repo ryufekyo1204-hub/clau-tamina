@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell, utilityProcess } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
+import { readdir, stat } from 'fs/promises'
 import { config as loadDotenv } from 'dotenv'
 import { saveSession, loadSession, listSessions, deleteSession } from './sessions'
 
@@ -197,6 +198,31 @@ ipcMain.handle('session:save', (_, data) => saveSession(data))
 ipcMain.handle('session:load', (_, id: string) => loadSession(id))
 ipcMain.handle('session:list', () => listSessions())
 ipcMain.handle('session:delete', (_, id: string) => deleteSession(id))
+
+// IPC handlers — File system (read-only listing for file tree panel)
+ipcMain.handle('fs:list-dir', async (_, dirPath: string) => {
+  try {
+    const names = await readdir(dirPath)
+    const entries = await Promise.all(
+      names.map(async (name) => {
+        const fullPath = join(dirPath, name)
+        try {
+          const s = await stat(fullPath)
+          return { name, isDir: s.isDirectory(), path: fullPath }
+        } catch {
+          return { name, isDir: false, path: fullPath }
+        }
+      })
+    )
+    // Directories first, then files, both alphabetically
+    return entries.sort((a, b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+  } catch {
+    return []
+  }
+})
 
 // IPC handlers — Settings
 ipcMain.handle('settings:get', () => settings)
