@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, shell, utilityProcess, Notification, dialog } from 'electron'
+import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, shell, utilityProcess, Notification, dialog } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { readdir, stat, writeFile } from 'fs/promises'
@@ -205,6 +205,14 @@ function startPtyHost(): void {
     } else if (m.type === 'cwd-update') {
       // A-3: OSC 7 CWD tracking
       mainWindow.webContents.send('pty:cwd-update', m.cwd)
+    } else if (m.type === 'clipboard-write') {
+      // A-1: OSC 52 clipboard write
+      if (typeof m.text === 'string') {
+        clipboard.writeText(m.text)
+      }
+    } else if (m.type === 'bell') {
+      // A-2: Bell visual indicator
+      mainWindow.webContents.send('pty:bell')
     }
   })
 

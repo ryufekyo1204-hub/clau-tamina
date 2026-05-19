@@ -4,6 +4,13 @@ export interface ProcessInfo {
   memMb: number
 }
 
+export interface ProcessEntry {
+  name: string
+  pid?: number
+  cpu: number
+  mem: number
+}
+
 export interface ApiSettings {
   bypassPermissions: boolean
   windowBounds: { width: number; height: number; x?: number; y?: number }
@@ -92,6 +99,9 @@ interface ClauTaminaApi {
 
   // PTY CWD update (A-3)
   onPtyCwdUpdate(cb: (cwd: string) => void): () => void
+
+  // Bell visual indicator (A-2)
+  onPtyBell(cb: () => void): () => void
 
   // Terminal scrollback save (A-5)
   saveScrollback(text: string): Promise<string | null>

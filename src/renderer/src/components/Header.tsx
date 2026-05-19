@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useSessionStore } from '../store/session'
 import { SessionList } from './SessionList'
 
@@ -11,6 +11,16 @@ interface HeaderProps {
 
 export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onChatToggle }: HeaderProps): React.ReactElement {
   const { bypassPermissions, setBypassPermissions, totalInputTokens, totalOutputTokens, parallelAgents } = useSessionStore()
+
+  // A-2: Bell visual indicator
+  const [bellVisible, setBellVisible] = useState(false)
+  useEffect(() => {
+    const off = window.api.onPtyBell(() => {
+      setBellVisible(true)
+      setTimeout(() => setBellVisible(false), 3000)
+    })
+    return off
+  }, [])
 
   // Count agents in each state for header badges (Wave Terminal block badges roll-up)
   const agentList = Object.values(parallelAgents)
@@ -94,6 +104,20 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
         </span>
         <span className="header-cost">{formatCost(totalCostUsd)}</span>
         <span className="header-model" style={{ color: 'var(--accent)' }}>Sonnet 4.6</span>
+        {/* A-2: Bell visual indicator */}
+        {bellVisible && (
+          <span
+            title="ベル"
+            style={{
+              fontSize: '13px',
+              color: 'var(--status-warning)',
+              animation: 'bell-fade 3s ease-out forwards',
+              pointerEvents: 'none'
+            }}
+          >
+            🔔
+          </span>
+        )}
         {onChatToggle && (
           <button
             className="settings-btn"

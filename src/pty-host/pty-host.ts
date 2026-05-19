@@ -11,6 +11,28 @@ let pty: nodePty.IPty | null = null
 let buffer = ''
 let flushTimer: ReturnType<typeof setTimeout> | null = null
 
+// OSC 52 clipboard pattern: ESC ] 52 ; <params> ; <base64> BEL/ST
+const OSC52_RE = /\x1b\]52;[a-zA-Z]*;([A-Za-z0-9+/=]*?)(?:\x07|\x1b\\)/g
+
+/**
+ * Parse and strip OSC 52 clipboard sequences from a data chunk.
+ * Sends clipboard-write messages to the parent process for any found.
+ * Returns the data with clipboard sequences removed.
+ */
+function processClipboardSequences(data: string): string {
+  OSC52_RE.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = OSC52_RE.exec(data)) !== null) {
+    try {
+      const text = Buffer.from(match[1], 'base64').toString('utf8')
+      process.parentPort.postMessage({ type: 'clipboard-write', text })
+    } catch {
+      // ignore malformed base64
+    }
+  }
+  return data.replace(OSC52_RE, '')
+}
+
 // OSC 9999 badge pattern: ESC ] 9999 ; badge=<text> BEL  or  ESC ] 9999 ; badge=<text> ESC \
 const OSC_BADGE_RE = /\x1b\]9999;badge=([^\x07\x1b]*?)(?:\x07|\x1b\\)/g
 
@@ -77,6 +99,17 @@ function processCwdSequences(data: string): string {
   return data.replace(OSC7_RE, '')
 }
 
+/**
+ * Parse and strip standalone bell sequences (\x07) from a data chunk.
+ * Must be called after all OSC parsers so OSC terminator \x07 is already consumed.
+ * Returns { output: string; hasBell: boolean }.
+ */
+function processBellSequences(data: string): { output: string; hasBell: boolean } {
+  const hasBell = data.includes('\x07')
+  const output = data.replace(/\x07/g, '')
+  return { output, hasBell }
+}
+
 function flush(): void {
   if (buffer.length === 0) return
   process.parentPort.postMessage({ type: 'data', data: buffer })
@@ -110,9 +143,15 @@ function spawnPty(cwd: string): void {
   })
 
   pty.onData((data: string) => {
-    let cleaned = processBadgeSequences(data)
+    let cleaned = processClipboardSequences(data)
+    cleaned = processBadgeSequences(cleaned)
     cleaned = processNotifySequences(cleaned)
     cleaned = processCwdSequences(cleaned)
+    const { output, hasBell } = processBellSequences(cleaned)
+    if (hasBell) {
+      process.parentPort.postMessage({ type: 'bell' })
+    }
+    cleaned = output
     buffer += cleaned
     // flush when chunk >= 4KB
     if (buffer.length >= 4096) {

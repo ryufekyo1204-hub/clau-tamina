@@ -81,7 +81,8 @@ export function TerminalPane(): React.ReactElement {
           white:           '#d0d0d0',
           brightWhite:     '#f0f0f0'
         },
-        allowProposedApi: true
+        allowProposedApi: true,
+        rescaleOverlappingGlyphs: true
       })
 
       const fitAddon = new FitAddon()
@@ -199,6 +200,28 @@ export function TerminalPane(): React.ReactElement {
           gap: '4px'
         }}
       >
+        {/* A-5: Section mark button */}
+        <button
+          onClick={() => {
+            const term = termRef.current
+            if (term) term.write('\r\n\x1b[2m────────── MARK ──────────\x1b[0m\r\n')
+          }}
+          title="セクションマークを挿入"
+          style={{
+            padding: '1px 6px',
+            background: 'transparent',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '4px',
+            color: 'var(--text-secondary)',
+            fontSize: 'var(--text-xs)',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-mono)',
+            transition: 'color 0.15s, border-color 0.15s'
+          }}
+        >
+          ⊘
+        </button>
+        {/* A-5: Save scrollback button */}
         <button
           onClick={() => void handleSaveScrollback()}
           disabled={savingScrollback}

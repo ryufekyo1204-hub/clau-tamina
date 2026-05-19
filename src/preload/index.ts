@@ -147,6 +147,13 @@ const api = {
     return () => ipcRenderer.removeListener('pty:cwd-update', handler)
   },
 
+  // Bell visual indicator (A-2)
+  onPtyBell: (cb: () => void) => {
+    const handler = (_: IpcRendererEvent) => { cb(); return _ }
+    ipcRenderer.on('pty:bell', handler)
+    return () => ipcRenderer.removeListener('pty:bell', handler)
+  },
+
   // Terminal scrollback save (A-5)
   saveScrollback: (text: string): Promise<string | null> =>
     ipcRenderer.invoke('pty:save-scrollback', text)
