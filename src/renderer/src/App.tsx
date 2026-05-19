@@ -73,10 +73,9 @@ export function App(): React.ReactElement {
       setCwd(s.currentWorkingDir)
       setTabBarOrientation(s.tabBarOrientation ?? 'horizontal')
       // Load persisted font settings if present
-      const anyS = s as Record<string, unknown>
-      const fontSize = typeof anyS['fontSizeTerminal'] === 'number' ? anyS['fontSizeTerminal'] : 14
-      const fontFamily = typeof anyS['fontFamilyTerminal'] === 'string'
-        ? anyS['fontFamilyTerminal']
+      const fontSize = typeof s.fontSizeTerminal === 'number' ? s.fontSizeTerminal : 14
+      const fontFamily = typeof s.fontFamilyTerminal === 'string'
+        ? s.fontFamilyTerminal
         : '"Cascadia Code", "Cascadia Mono", Consolas, monospace'
       loadFontSettings(fontSize, fontFamily)
     })

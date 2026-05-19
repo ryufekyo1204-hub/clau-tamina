@@ -22,6 +22,8 @@ export interface ApiSettings {
   cursorBlink: boolean
   tabLabels?: Record<string, string>
   headerBackground?: string
+  fontSizeTerminal?: number
+  fontFamilyTerminal?: string
   maxBudgetUsd?: number
   cwdColorMap?: Record<string, string>
 }

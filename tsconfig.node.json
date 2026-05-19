@@ -10,7 +10,7 @@
     "composite": true,
     "target": "ES2022",
     "module": "CommonJS",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "strict": true,
     "skipLibCheck": true,
     "outDir": "out",

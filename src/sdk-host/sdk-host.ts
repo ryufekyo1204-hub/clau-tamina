@@ -15,7 +15,9 @@ async function runQuery(id: number, prompt: string, options: Record<string, unkn
   abortController = new AbortController()
 
   try {
-    const { query } = await import('@anthropic-ai/claude-code')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const claudeCode: any = await import('@anthropic-ai/claude-code' as string)
+    const query: (opts: unknown) => AsyncIterable<unknown> = claudeCode.query
 
     const cwd = (options['cwd'] as string | undefined) ?? process.env['USERPROFILE'] ?? 'C:\\Users'
     const bypass = (options['bypassPermissions'] as boolean | undefined) ?? true

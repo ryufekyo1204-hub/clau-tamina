@@ -335,7 +335,7 @@ ipcMain.handle('fs:list-dir', async (_, dirPath: string) => {
 ipcMain.handle('settings:get', () => settings)
 
 ipcMain.handle('settings:set', (_, key: string, value: unknown) => {
-  (settings as Record<string, unknown>)[key] = value
+  (settings as unknown as Record<string, unknown>)[key] = value
   saveSettings(settings)
   // Re-register global hotkeys if quake hotkey changed
   if (key === 'globalHotkey' && typeof value === 'string') {

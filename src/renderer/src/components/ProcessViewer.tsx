@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import type { ProcessEntry } from '../types/api'
+import type { ProcessInfo } from '../types/api'
 
 const REFRESH_INTERVAL = 5000
 
 export function ProcessViewer(): React.ReactElement {
-  const [processes, setProcesses] = useState<ProcessEntry[]>([])
+  const [processes, setProcesses] = useState<ProcessInfo[]>([])
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -114,12 +114,12 @@ export function ProcessViewer(): React.ReactElement {
                 zIndex: 1
               }}
             >
-              {(['プロセス名', 'PID', 'CPU (s)', 'メモリ'] as const).map((col) => (
+              {(['プロセス名', 'CPU (s)', 'メモリ'] as const).map((col) => (
                 <th
                   key={col}
                   style={{
                     padding: '5px 8px',
-                    textAlign: col === 'プロセス名' ? 'left' : 'right',
+                    textAlign: col === 'プロセス名' ? 'left' : 'right' as const,
                     color: 'var(--text-muted)',
                     fontWeight: 600,
                     fontSize: '10px',
@@ -137,7 +137,7 @@ export function ProcessViewer(): React.ReactElement {
             {filtered.length === 0 && !loading && (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={3}
                   style={{
                     textAlign: 'center',
                     padding: '24px',
@@ -150,9 +150,9 @@ export function ProcessViewer(): React.ReactElement {
                 </td>
               </tr>
             )}
-            {filtered.map((proc) => (
+            {filtered.map((proc, idx) => (
               <tr
-                key={proc.pid}
+                key={`${proc.name}-${idx}`}
                 style={{ borderBottom: '1px solid var(--border-subtle)' }}
                 onMouseEnter={(e) => {
                   ;(e.currentTarget as HTMLTableRowElement).style.background =
@@ -175,9 +175,6 @@ export function ProcessViewer(): React.ReactElement {
                 >
                   {proc.name}
                 </td>
-                <td style={{ padding: '4px 8px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                  {proc.pid}
-                </td>
                 <td
                   style={{
                     padding: '4px 8px',
@@ -193,7 +190,7 @@ export function ProcessViewer(): React.ReactElement {
                   {formatCpu(proc.cpu)}
                 </td>
                 <td style={{ padding: '4px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>
-                  {formatMem(proc.mem)}
+                  {formatMem(proc.memMb)}
                 </td>
               </tr>
             ))}

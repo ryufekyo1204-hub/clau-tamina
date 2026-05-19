@@ -1,19 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 
-// Extend JSX to allow webview element
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      webview: React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement> & {
-          src?: string
-          allowpopups?: string
-          webpreferences?: string
-        },
-        HTMLElement
-      >
-    }
-  }
+// webview JSX augmentation — defers to Electron's built-in WebViewHTMLAttributes
+declare module 'react' {
+  // intentionally empty — suppress duplicate webview declaration by deferring to Electron
 }
 
 interface Favorite {
@@ -320,7 +309,7 @@ export function BrowserPane(): React.ReactElement {
           ref={webviewRef as any}
           src={url}
           style={{ width: '100%', height: '100%' } as React.CSSProperties}
-          allowpopups="true"
+          allowpopups={true}
           webpreferences="contextIsolation=false"
         />
 
