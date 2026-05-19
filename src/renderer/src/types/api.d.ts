@@ -11,6 +11,8 @@ export interface ApiSettings {
   currentWorkingDir: string
   globalHotkey: string
   tabBarOrientation: 'horizontal' | 'vertical'
+  cursorStyle: 'block' | 'bar' | 'underline'
+  cursorBlink: boolean
 }
 
 export interface SdkMessage {
@@ -83,6 +85,16 @@ interface ClauTaminaApi {
   listProcesses(): Promise<ProcessInfo[]>
 
   onChatToggle(cb: () => void): () => void
+
+  // Pane focus navigation (A-1 Vim style)
+  onFocusTerminal(cb: () => void): () => void
+  onFocusChat(cb: () => void): () => void
+
+  // PTY CWD update (A-3)
+  onPtyCwdUpdate(cb: (cwd: string) => void): () => void
+
+  // Terminal scrollback save (A-5)
+  saveScrollback(text: string): Promise<string | null>
 }
 
 declare global {

@@ -23,5 +23,33 @@
       "WebFetch(domain:marketplace.visualstudio.com)",
       "Skill(update-config)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const c=[]; process.stdin.on('data',d=>c.push(d)); process.stdin.on('end',()=>{ const d=JSON.parse(c.join('')); const fp=(d.tool_input&&d.tool_input.file_path)||''; if(fp.match(/\\.env(\\.[a-z]+)?$/i)){process.stdout.write(JSON.stringify({decision:'block',reason:'.envへの書き込みは禁止（APIキーを含むため）'})); process.exit(2);} });\"",
+            "statusMessage": ".envチェック中..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const c=[]; process.stdin.on('data',d=>c.push(d)); process.stdin.on('end',()=>{ const d=JSON.parse(c.join('')); const fp=(d.tool_input&&d.tool_input.file_path)||''; if(fp.match(/\\.(ts|tsx)$/)){const {execSync}=require('child_process'); try{const r=execSync('cd /c/Claude-Files/clau-tamina && npx tsc --noEmit --skipLibCheck -p tsconfig.web.json 2>&1',{encoding:'utf8'}); if(r.trim()) process.stdout.write(r.slice(-500));}catch(e){process.stdout.write(e.stdout?e.stdout.slice(-500):'TSC error');}} });\"",
+            "statusMessage": "TS型チェック中...",
+            "async": true,
+            "timeout": 30
+          }
+        ]
+      }
+    ]
   }
 }

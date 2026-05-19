@@ -139,6 +139,14 @@ export function ChatPane(): React.ReactElement {
     }
   }, [handleSdkMessage, setPendingTool, handleAgentSdkMessage])
 
+  // A-1: Vim pane navigation — focus chat input on Ctrl+Shift+L
+  useEffect(() => {
+    const offFocusChat = window.api.onFocusChat(() => {
+      textareaRef.current?.focus()
+    })
+    return offFocusChat
+  }, [])
+
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

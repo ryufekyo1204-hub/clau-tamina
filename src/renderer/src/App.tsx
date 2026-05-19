@@ -57,6 +57,15 @@ export function App(): React.ReactElement {
     return off
   }, [])
 
+  // A-3: OSC 7 CWD auto-tracking from PTY host
+  useEffect(() => {
+    const off = window.api.onPtyCwdUpdate((cwd) => {
+      setCwd(cwd)
+      void window.api.setSetting('currentWorkingDir', cwd)
+    })
+    return off
+  }, [setCwd])
+
   useEffect(() => {
     window.api.getSettings().then((s) => {
       setSplitRatio(s.splitRatio)

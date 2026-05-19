@@ -20,14 +20,61 @@ const OSC_BADGE_RE = /\x1b\]9999;badge=([^\x07\x1b]*?)(?:\x07|\x1b\\)/g
  * Returns the data with badge sequences removed.
  */
 function processBadgeSequences(data: string): string {
-  let stripped = data
-  let match: RegExpExecArray | null
   OSC_BADGE_RE.lastIndex = 0
+  let match: RegExpExecArray | null
   while ((match = OSC_BADGE_RE.exec(data)) !== null) {
     process.parentPort.postMessage({ type: 'badge-update', text: match[1] })
   }
-  stripped = data.replace(OSC_BADGE_RE, '')
+  return data.replace(OSC_BADGE_RE, '')
+}
+
+// OSC 9: ESC ] 9 ; <message> BEL/ST
+const OSC9_RE = /\x1b\]9;([^\x07\x1b]*?)(?:\x07|\x1b\\)/g
+// OSC 777: ESC ] 777 ; notify ; <title> ; <body> BEL/ST
+const OSC777_RE = /\x1b\]777;notify;([^\x07\x1b;]*?);([^\x07\x1b]*?)(?:\x07|\x1b\\)/g
+
+/**
+ * Parse and strip OSC 9 / OSC 777 notification sequences.
+ * Sends notify messages to the parent process.
+ * Returns the data with notification sequences removed.
+ */
+function processNotifySequences(data: string): string {
+  OSC9_RE.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = OSC9_RE.exec(data)) !== null) {
+    process.parentPort.postMessage({ type: 'notify', title: 'clau-tamina', body: match[1] })
+  }
+  let stripped = data.replace(OSC9_RE, '')
+
+  OSC777_RE.lastIndex = 0
+  while ((match = OSC777_RE.exec(stripped)) !== null) {
+    process.parentPort.postMessage({ type: 'notify', title: match[1] || 'clau-tamina', body: match[2] })
+  }
+  stripped = stripped.replace(OSC777_RE, '')
   return stripped
+}
+
+// OSC 7: ESC ] 7 ; file:// <hostname> <path> BEL/ST
+// Captures the path portion after the hostname
+const OSC7_RE = /\x1b\]7;file:\/\/[^/\x07\x1b]*([^\x07\x1b]*?)(?:\x07|\x1b\\)/g
+
+/**
+ * Parse and strip OSC 7 CWD sequences.
+ * Sends cwd-update messages to the parent process.
+ * Returns the data with CWD sequences removed.
+ */
+function processCwdSequences(data: string): string {
+  OSC7_RE.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = OSC7_RE.exec(data)) !== null) {
+    try {
+      const cwd = decodeURIComponent(match[1])
+      if (cwd) process.parentPort.postMessage({ type: 'cwd-update', cwd })
+    } catch {
+      // ignore malformed URIs
+    }
+  }
+  return data.replace(OSC7_RE, '')
 }
 
 function flush(): void {
@@ -63,7 +110,9 @@ function spawnPty(cwd: string): void {
   })
 
   pty.onData((data: string) => {
-    const cleaned = processBadgeSequences(data)
+    let cleaned = processBadgeSequences(data)
+    cleaned = processNotifySequences(cleaned)
+    cleaned = processCwdSequences(cleaned)
     buffer += cleaned
     // flush when chunk >= 4KB
     if (buffer.length >= 4096) {

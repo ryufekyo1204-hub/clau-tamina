@@ -14,6 +14,8 @@ export interface ApiSettings {
   currentWorkingDir: string
   globalHotkey: string
   tabBarOrientation: 'horizontal' | 'vertical'
+  cursorStyle: 'block' | 'bar' | 'underline'
+  cursorBlink: boolean
 }
 
 export interface SdkMessage {
@@ -124,7 +126,30 @@ const api = {
     const handler = (_: IpcRendererEvent) => { cb(); return _ }
     ipcRenderer.on('chat:toggle', handler)
     return () => ipcRenderer.removeListener('chat:toggle', handler)
-  }
+  },
+
+  // Pane focus navigation (A-1 Vim style)
+  onFocusTerminal: (cb: () => void) => {
+    const handler = (_: IpcRendererEvent) => { cb(); return _ }
+    ipcRenderer.on('focus:terminal', handler)
+    return () => ipcRenderer.removeListener('focus:terminal', handler)
+  },
+  onFocusChat: (cb: () => void) => {
+    const handler = (_: IpcRendererEvent) => { cb(); return _ }
+    ipcRenderer.on('focus:chat', handler)
+    return () => ipcRenderer.removeListener('focus:chat', handler)
+  },
+
+  // PTY CWD update (A-3)
+  onPtyCwdUpdate: (cb: (cwd: string) => void) => {
+    const handler = (_: IpcRendererEvent, cwd: string) => cb(cwd)
+    ipcRenderer.on('pty:cwd-update', handler)
+    return () => ipcRenderer.removeListener('pty:cwd-update', handler)
+  },
+
+  // Terminal scrollback save (A-5)
+  saveScrollback: (text: string): Promise<string | null> =>
+    ipcRenderer.invoke('pty:save-scrollback', text)
 }
 
 contextBridge.exposeInMainWorld('api', api)

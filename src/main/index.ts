@@ -1,7 +1,7 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, shell, utilityProcess } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, shell, utilityProcess, Notification, dialog } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
-import { readdir, stat } from 'fs/promises'
+import { readdir, stat, writeFile } from 'fs/promises'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { config as loadDotenv } from 'dotenv'
@@ -31,6 +31,8 @@ interface Settings {
   currentWorkingDir: string
   globalHotkey: string   // Quake Mode hotkey, e.g. "Ctrl+Alt+T"
   tabBarOrientation: 'horizontal' | 'vertical'
+  cursorStyle: 'block' | 'bar' | 'underline'
+  cursorBlink: boolean
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -39,7 +41,9 @@ const DEFAULT_SETTINGS: Settings = {
   splitRatio: 0.55,
   currentWorkingDir: process.env.USERPROFILE ?? 'C:\\Users',
   globalHotkey: 'Ctrl+Alt+T',
-  tabBarOrientation: 'horizontal'
+  tabBarOrientation: 'horizontal',
+  cursorStyle: 'block',
+  cursorBlink: true
 }
 
 function loadSettings(): Settings {
@@ -98,6 +102,24 @@ function registerChatToggleShortcut(): void {
       if (mainWindow) {
         mainWindow.webContents.send('chat:toggle')
       }
+    })
+  } catch {
+    // Silently ignore
+  }
+}
+
+// ---- Pane navigation shortcuts (A-1 Vim style) ----
+function registerPaneShortcuts(): void {
+  try {
+    globalShortcut.register('Ctrl+Shift+H', () => {
+      if (mainWindow) mainWindow.webContents.send('focus:terminal')
+    })
+  } catch {
+    // Silently ignore
+  }
+  try {
+    globalShortcut.register('Ctrl+Shift+L', () => {
+      if (mainWindow) mainWindow.webContents.send('focus:chat')
     })
   } catch {
     // Silently ignore
@@ -173,6 +195,16 @@ function startPtyHost(): void {
       mainWindow.webContents.send('pty:exit', m.exitCode)
     } else if (m.type === 'badge-update') {
       mainWindow.webContents.send('pty:badge-update', m.text)
+    } else if (m.type === 'notify') {
+      // A-2: OSC 9 / OSC 777 desktop notification
+      const title = typeof m.title === 'string' ? m.title : 'clau-tamina'
+      const body = typeof m.body === 'string' ? m.body : ''
+      if (Notification.isSupported()) {
+        new Notification({ title, body }).show()
+      }
+    } else if (m.type === 'cwd-update') {
+      // A-3: OSC 7 CWD tracking
+      mainWindow.webContents.send('pty:cwd-update', m.cwd)
     }
   })
 
@@ -278,8 +310,22 @@ ipcMain.handle('settings:set', (_, key: string, value: unknown) => {
     globalShortcut.unregisterAll()
     registerChatToggleShortcut()
     registerQuakeHotkey(value)
+    registerPaneShortcuts()
   }
   return settings
+})
+
+// IPC handler — Terminal scrollback save (A-5)
+ipcMain.handle('pty:save-scrollback', async (_, text: string) => {
+  const { filePath } = await dialog.showSaveDialog({
+    defaultPath: 'terminal-log.txt',
+    filters: [{ name: 'Text', extensions: ['txt'] }]
+  })
+  if (filePath) {
+    await writeFile(filePath, text, 'utf8')
+    return filePath
+  }
+  return null
 })
 
 // IPC handler — Process Viewer (A-1)
@@ -312,6 +358,7 @@ app.whenReady().then(() => {
   startSdkHost()
   registerChatToggleShortcut()
   registerQuakeHotkey(settings.globalHotkey)
+  registerPaneShortcuts()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

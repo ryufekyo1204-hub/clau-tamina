@@ -25,13 +25,15 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   const [hotkeyInput, setHotkeyInput] = useState('Ctrl+Alt+T')
   const [hotkeyEditing, setHotkeyEditing] = useState(false)
   const [tabBarOrientation, setTabBarOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
+  const [cursorStyle, setCursorStyleState] = useState<'block' | 'bar' | 'underline'>('block')
+  const [cursorBlink, setCursorBlinkState] = useState(true)
 
   // Sync input when currentWorkingDir is updated externally (e.g. from FileTreePane)
   useEffect(() => {
     setCwdInput(currentWorkingDir)
   }, [currentWorkingDir])
 
-  // Load persisted hotkey and orientation from settings on modal open
+  // Load persisted hotkey, orientation, and cursor settings on modal open
   useEffect(() => {
     if (open) {
       window.api.getSettings().then((s) => {
@@ -39,6 +41,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
         setGlobalHotkey(hotkey)
         setHotkeyInput(hotkey)
         setTabBarOrientation(s.tabBarOrientation ?? 'horizontal')
+        setCursorStyleState(s.cursorStyle ?? 'block')
+        setCursorBlinkState(s.cursorBlink ?? true)
       })
     }
   }, [open])
@@ -46,6 +50,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   const handleTabBarOrientationChange = (val: 'horizontal' | 'vertical') => {
     setTabBarOrientation(val)
     void window.api.setSetting('tabBarOrientation', val)
+  }
+
+  const handleCursorStyleChange = (val: 'block' | 'bar' | 'underline') => {
+    setCursorStyleState(val)
+    void window.api.setSetting('cursorStyle', val)
+  }
+
+  const handleCursorBlinkChange = (val: boolean) => {
+    setCursorBlinkState(val)
+    void window.api.setSetting('cursorBlink', val)
   }
 
   if (!open) return null
@@ -240,7 +254,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
               </label>
 
               {/* Split ratio */}
-              <label style={{ display: 'block' }}>
+              <label style={{ display: 'block', marginBottom: '16px' }}>
                 <div
                   style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}
                 >
@@ -267,6 +281,65 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                   style={{ width: '100%', accentColor: 'var(--accent)' } as React.CSSProperties}
                 />
               </label>
+
+              {/* Cursor style (A-4) */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  カーソルスタイル
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {(['block', 'bar', 'underline'] as const).map((style) => (
+                    <button
+                      key={style}
+                      onClick={() => handleCursorStyleChange(style)}
+                      style={{
+                        flex: 1,
+                        padding: '5px 0',
+                        borderRadius: '6px',
+                        fontSize: 'var(--text-xs)',
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        border: cursorStyle === style ? '1px solid var(--border-accent)' : '1px solid var(--border-subtle)',
+                        background: cursorStyle === style ? 'var(--accent-subtle)' : 'transparent',
+                        color: cursorStyle === style ? 'var(--accent)' : 'var(--text-secondary)',
+                        transition: 'background 0.15s, border-color 0.15s, color 0.15s'
+                      }}
+                    >
+                      {style === 'block' ? 'ブロック' : style === 'bar' ? 'バー' : 'アンダー'}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                  次回ターミナル起動時に適用されます
+                </div>
+              </div>
+
+              {/* Cursor blink (A-4) */}
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                    カーソル点滅
+                  </span>
+                  <button
+                    onClick={() => handleCursorBlinkChange(!cursorBlink)}
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: '6px',
+                      fontSize: 'var(--text-xs)',
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: cursorBlink ? '1px solid var(--border-accent)' : '1px solid var(--border-subtle)',
+                      background: cursorBlink ? 'var(--accent-subtle)' : 'transparent',
+                      color: cursorBlink ? 'var(--accent)' : 'var(--text-secondary)',
+                      transition: 'background 0.15s, border-color 0.15s, color 0.15s'
+                    }}
+                  >
+                    {cursorBlink ? 'オン' : 'オフ'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
