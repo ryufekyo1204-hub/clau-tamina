@@ -53,7 +53,8 @@ function processBadgeSequences(data: string): string {
 }
 
 // OSC 9: ESC ] 9 ; <message> BEL/ST
-const OSC9_RE = /\x1b\]9;([^\x07\x1b]*?)(?:\x07|\x1b\\)/g
+// Negative lookahead (?!4;) prevents matching OSC 9;4 ConEmu progress sequences
+const OSC9_RE = /\x1b\]9;(?!4;)([^\x07\x1b]*?)(?:\x07|\x1b\\)/g
 // OSC 777: ESC ] 777 ; notify ; <title> ; <body> BEL/ST
 const OSC777_RE = /\x1b\]777;notify;([^\x07\x1b;]*?);([^\x07\x1b]*?)(?:\x07|\x1b\\)/g
 

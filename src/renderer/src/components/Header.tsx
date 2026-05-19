@@ -44,19 +44,16 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
     }).catch(() => { /* ignore */ })
   }, [])
 
-  // A-4: subscribe to CWD updates and update header color from map
+  // A-4: subscribe to CWD updates — use locally-cached map to avoid IPC on every cd
+  const cwdColorMapRef = React.useRef(cwdColorMap)
+  const headerBackgroundBaseRef = React.useRef(headerBackground)
+  useEffect(() => { cwdColorMapRef.current = cwdColorMap }, [cwdColorMap])
+  useEffect(() => { headerBackgroundBaseRef.current = headerBackground }, [headerBackground])
+
   useEffect(() => {
     const off = window.api.onPtyCwdUpdate((cwd) => {
-      window.api.getSettings().then((s) => {
-        const map = s.cwdColorMap ?? {}
-        setCwdColorMap(map)
-        if (map[cwd]) {
-          setHeaderBackground(map[cwd])
-        } else {
-          // Revert to base headerBackground setting when no mapping
-          setHeaderBackground(s.headerBackground)
-        }
-      }).catch(() => { /* ignore */ })
+      const color = cwdColorMapRef.current[cwd]
+      setHeaderBackground(color ?? headerBackgroundBaseRef.current)
     })
     return off
   }, [])
@@ -92,6 +89,7 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
             background: progressState === 3
               ? `linear-gradient(90deg, transparent 0%, ${progressColor} 50%, transparent 100%)`
               : progressColor,
+            backgroundSize: progressState === 3 ? '200% 100%' : undefined,
             animation: progressState === 3 ? 'progress-indeterminate 1.5s ease-in-out infinite' : undefined,
             transition: progressState !== 3 ? 'width 0.3s ease' : undefined,
             pointerEvents: 'none',

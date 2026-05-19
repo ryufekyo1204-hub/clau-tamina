@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
@@ -18,7 +18,7 @@ export function TerminalPane(): React.ReactElement {
   const fontFamilyTerminal = useSessionStore((s) => s.fontFamilyTerminal)
 
   // A-5: save scrollback to file via main process dialog
-  const handleSaveScrollback = async () => {
+  const handleSaveScrollback = useCallback(async () => {
     const term = termRef.current
     if (!term || savingScrollback) return
     setSavingScrollback(true)
@@ -32,7 +32,7 @@ export function TerminalPane(): React.ReactElement {
     } finally {
       setSavingScrollback(false)
     }
-  }
+  }, [savingScrollback])
 
   useEffect(() => {
     if (!containerRef.current) return

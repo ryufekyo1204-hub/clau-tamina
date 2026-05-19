@@ -9,8 +9,8 @@ type IncomingMsg = QueryMsg | ToolResponseMsg | AbortMsg
 
 interface HistoryEntry { role: 'user' | 'assistant'; content: string }
 
-// Override via .env: CLAUDE_MODEL=claude-opus-4-5
-const MODEL = process.env['CLAUDE_MODEL'] ?? 'claude-sonnet-4-5'
+// Override via .env: CLAUDE_MODEL=claude-opus-4-7
+const MODEL = process.env['CLAUDE_MODEL'] ?? 'claude-sonnet-4-6'
 
 let abortController: AbortController | null = null
 
