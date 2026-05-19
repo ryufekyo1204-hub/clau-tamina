@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useSessionStore } from '../store/session'
 import type { ParallelAgent, ChatMessage } from '../store/session'
 
@@ -8,22 +8,63 @@ const STATUS_COLOR: Record<ParallelAgent['status'], string> = {
   error: 'var(--status-error)'
 }
 
+// Badge backgrounds (semi-transparent fill)
 const STATUS_BG: Record<ParallelAgent['status'], string> = {
   running: 'rgba(88,193,66,0.12)',
   done: 'rgba(90,85,80,0.15)',
   error: 'rgba(229,77,46,0.15)'
 }
 
-const STATUS_ICON: Record<ParallelAgent['status'], string> = {
-  running: '⚙',
-  done: '✓',
-  error: '✗'
+// Badge: icon + short label (Wave Terminal v0.14.2 style block badges)
+const STATUS_BADGE: Record<ParallelAgent['status'], { icon: string; label: string }> = {
+  running: { icon: '⚙', label: '実行中' },
+  done:    { icon: '✓', label: '完了' },
+  error:   { icon: '✗', label: 'エラー' }
 }
 
-const STATUS_LABEL: Record<ParallelAgent['status'], string> = {
-  running: '実行中',
-  done: '完了',
-  error: 'エラー'
+// ---- Process Viewer types ----
+interface ProcessInfo {
+  name: string
+  cpu: number
+  memMb: number
+}
+
+// Pill-shaped badge component (Wave Terminal v0.14.2 block badges)
+function StatusBadge({ status }: { status: ParallelAgent['status'] }): React.ReactElement {
+  const { icon, label } = STATUS_BADGE[status]
+  const color = STATUS_COLOR[status]
+  const bg = STATUS_BG[status]
+  return (
+    <>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '2px 8px',
+          borderRadius: '999px',
+          background: bg,
+          border: `1px solid ${color}`,
+          fontSize: 'var(--text-xs)',
+          color,
+          fontFamily: 'var(--font-mono)',
+          fontWeight: 600,
+          animation: status === 'running' ? 'badge-pulse 2s ease-in-out infinite' : 'none',
+          lineHeight: 1.4,
+          whiteSpace: 'nowrap'
+        }}
+      >
+        <span style={{ fontSize: '9px' }}>{icon}</span>
+        {label}
+      </span>
+      <style>{`
+        @keyframes badge-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
+      `}</style>
+    </>
+  )
 }
 
 function AgentCard({
@@ -78,34 +119,10 @@ function AgentCard({
         </button>
       )}
 
-      {/* Card header: pill badge */}
+      {/* Card header: pill badge (Wave Terminal block badge style) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: '2px 8px',
-            borderRadius: '999px',
-            background: STATUS_BG[agent.status],
-            border: `1px solid ${STATUS_COLOR[agent.status]}`,
-            fontSize: 'var(--text-xs)',
-            color: STATUS_COLOR[agent.status],
-            fontFamily: 'var(--font-mono)',
-            fontWeight: 600,
-            animation: agent.status === 'running' ? 'badge-pulse 2s ease-in-out infinite' : 'none'
-          }}
-        >
-          <span style={{ fontSize: '9px' }}>{STATUS_ICON[agent.status]}</span>
-          {STATUS_LABEL[agent.status]}
-        </span>
+        <StatusBadge status={agent.status} />
       </div>
-      <style>{`
-        @keyframes badge-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.6; }
-        }
-      `}</style>
 
       {/* Prompt (truncated as summary) */}
       <div
@@ -152,12 +169,190 @@ function AgentCard({
   )
 }
 
-// Renders only when 1 or more parallel agents are active
+// ---- Process Viewer panel ----
+function ProcessViewer(): React.ReactElement {
+  const [processes, setProcesses] = useState<ProcessInfo[]>([])
+  const [loading, setLoading] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const list = await window.api.listProcesses()
+      setProcesses(list)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'プロセス取得失敗')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Auto-refresh every 5s when expanded
+  useEffect(() => {
+    if (!expanded) return
+    refresh()
+    const id = setInterval(refresh, 5000)
+    return () => clearInterval(id)
+  }, [expanded, refresh])
+
+  return (
+    <div
+      style={{
+        borderTop: '1px solid var(--border-subtle)',
+        background: 'var(--app-bg)',
+        flexShrink: 0
+      }}
+    >
+      {/* Collapsible header */}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '5px 10px',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          color: 'var(--text-muted)',
+          fontSize: 'var(--text-xs)',
+          fontFamily: 'var(--font-mono)',
+          textAlign: 'left'
+        }}
+      >
+        <span
+          style={{
+            fontSize: '9px',
+            transition: 'transform 0.15s',
+            transform: expanded ? 'rotate(90deg)' : 'none',
+            display: 'inline-block'
+          }}
+        >
+          ▶
+        </span>
+        プロセスビューワー
+        {loading && <span style={{ color: 'var(--status-running)', marginLeft: '4px' }}>●</span>}
+        {!loading && processes.length > 0 && (
+          <span style={{ marginLeft: '4px', color: 'var(--text-muted)' }}>({processes.length})</span>
+        )}
+      </button>
+
+      {expanded && (
+        <div
+          style={{
+            maxHeight: '160px',
+            overflowY: 'auto',
+            padding: '0 10px 8px'
+          }}
+        >
+          {error && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--status-error)', padding: '4px 0' }}>
+              {error}
+            </div>
+          )}
+          {!error && processes.length === 0 && !loading && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', padding: '4px 0' }}>
+              データなし
+            </div>
+          )}
+          {processes.length > 0 && (
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: 'var(--text-xs)',
+                fontFamily: 'var(--font-mono)'
+              }}
+            >
+              <thead>
+                <tr>
+                  {['プロセス名', 'CPU%', 'MEM(MB)'].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        textAlign: h === 'プロセス名' ? 'left' : 'right',
+                        color: 'var(--text-muted)',
+                        fontWeight: 600,
+                        padding: '2px 4px',
+                        borderBottom: '1px solid var(--border-subtle)'
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {processes.map((p, i) => (
+                  <tr
+                    key={`${p.name}-${i}`}
+                    style={{
+                      background: i % 2 === 0 ? 'transparent' : 'var(--app-bg-hover)'
+                    }}
+                  >
+                    <td
+                      style={{
+                        color: 'var(--text-secondary)',
+                        padding: '2px 4px',
+                        maxWidth: '160px',
+                        overflow: 'hidden',
+                        whiteSpace: 'nowrap',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {p.name}
+                    </td>
+                    <td
+                      style={{
+                        textAlign: 'right',
+                        padding: '2px 4px',
+                        color: p.cpu > 10 ? 'var(--status-warning)' : 'var(--text-muted)'
+                      }}
+                    >
+                      {p.cpu.toFixed(1)}
+                    </td>
+                    <td style={{ textAlign: 'right', padding: '2px 4px', color: 'var(--text-muted)' }}>
+                      {p.memMb.toFixed(0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+            <button
+              onClick={refresh}
+              disabled={loading}
+              style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--accent)',
+                background: 'transparent',
+                border: 'none',
+                cursor: loading ? 'default' : 'pointer',
+                fontFamily: 'var(--font-mono)',
+                padding: '2px 0',
+                opacity: loading ? 0.5 : 1
+              }}
+            >
+              更新
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Renders only when 1 or more parallel agents are active (or always shows ProcessViewer)
 export function AgentCards(): React.ReactElement | null {
   const { parallelAgents, focusedAgentId, setFocusedAgentId, removeParallelAgent } = useSessionStore()
   const agents = Object.values(parallelAgents)
 
-  if (agents.length === 0) return null
+  // When no agents: only show ProcessViewer (collapsed by default, unobtrusive)
+  if (agents.length === 0) return <ProcessViewer />
 
   const focusedAgent = focusedAgentId ? parallelAgents[focusedAgentId] : null
 
@@ -183,6 +378,9 @@ export function AgentCards(): React.ReactElement | null {
           />
         ))}
       </div>
+
+      {/* Process Viewer — collapsible, below agent cards */}
+      <ProcessViewer />
 
       {/* Detail overlay */}
       {focusedAgent && (

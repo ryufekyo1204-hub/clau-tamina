@@ -4,10 +4,10 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { readdir, stat } from 'fs/promises'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-
-const execAsync = promisify(exec)
 import { config as loadDotenv } from 'dotenv'
 import { saveSession, loadSession, listSessions, deleteSession } from './sessions'
+
+const execAsync = promisify(exec)
 
 // .env をプロジェクトルートから読む（GEMINI_API_KEY など）
 // dev: __dirname = out/main/ → 2つ上がプロジェクトルート
@@ -29,7 +29,7 @@ interface Settings {
   windowBounds: { width: number; height: number; x?: number; y?: number }
   splitRatio: number
   currentWorkingDir: string
-  quakeHotkey: string
+  globalHotkey: string   // Quake Mode hotkey, e.g. "Ctrl+Alt+T"
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS: Settings = {
   windowBounds: { width: 1280, height: 800 },
   splitRatio: 0.55,
   currentWorkingDir: process.env.USERPROFILE ?? 'C:\\Users',
-  quakeHotkey: 'Ctrl+Alt+T'
+  globalHotkey: 'Ctrl+Alt+T'
 }
 
 function loadSettings(): Settings {
@@ -69,9 +69,11 @@ let sdkProcess: UtilProc | null = null
 let settings = loadSettings()
 let sdkQueryId = 0
 
+// ---- Quake Mode: globalShortcut (A-4) ----
 function registerQuakeHotkey(hotkey: string): void {
+  globalShortcut.unregisterAll()
+  if (!hotkey) return
   try {
-    globalShortcut.unregisterAll()
     globalShortcut.register(hotkey, () => {
       if (!mainWindow) return
       if (mainWindow.isVisible() && mainWindow.isFocused()) {
@@ -82,7 +84,7 @@ function registerQuakeHotkey(hotkey: string): void {
       }
     })
   } catch {
-    // Invalid hotkey format — silently ignore
+    // Silently ignore invalid accelerator strings
   }
 }
 
@@ -251,36 +253,34 @@ ipcMain.handle('fs:list-dir', async (_, dirPath: string) => {
 ipcMain.handle('settings:get', () => settings)
 
 ipcMain.handle('settings:set', (_, key: string, value: unknown) => {
-  if (key === 'quakeHotkey' && typeof value === 'string') {
+  (settings as Record<string, unknown>)[key] = value
+  saveSettings(settings)
+  // Re-register global hotkey if it changed
+  if (key === 'globalHotkey' && typeof value === 'string') {
     registerQuakeHotkey(value)
   }
-  ;(settings as Record<string, unknown>)[key] = value
-  saveSettings(settings)
   return settings
 })
 
-// IPC handler — Process list (Windows PowerShell)
-interface ProcessEntry {
-  name: string
-  pid: number
-  cpu: number
-  mem: number
-}
-
-ipcMain.handle('process:list', async (): Promise<ProcessEntry[]> => {
+// IPC handler — Process Viewer (A-1)
+// Uses async exec (non-blocking main process) with structured PowerShell output
+ipcMain.handle('process:list', async () => {
   try {
     const cmd =
       'powershell.exe -NoProfile -NonInteractive -Command ' +
       '"Get-Process | Select-Object ' +
       "@{n='name';e={$_.Name}}," +
-      "@{n='pid';e={$_.Id}}," +
       "@{n='cpu';e={[Math]::Round($_.CPU,2)}}," +
-      "@{n='mem';e={[Math]::Round($_.WorkingSet64/1MB,1)}} " +
-      '| Sort-Object cpu -Descending | Select-Object -First 40 ' +
+      "@{n='memMb';e={[Math]::Round($_.WorkingSet64/1MB,1)}} " +
+      '| Sort-Object memMb -Descending | Select-Object -First 60 ' +
       '| ConvertTo-Json -Compress -AsArray"'
-    const { stdout } = await execAsync(cmd, { timeout: 6000 })
-    const parsed = JSON.parse(stdout.trim())
-    return Array.isArray(parsed) ? parsed : []
+    const { stdout } = await execAsync(cmd, { timeout: 8000 })
+    const parsed = JSON.parse(stdout.trim()) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (p): p is { name: string; cpu: number; memMb: number } =>
+        typeof p === 'object' && p !== null
+    )
   } catch {
     return []
   }
@@ -290,7 +290,7 @@ app.whenReady().then(() => {
   mainWindow = createWindow()
   startPtyHost()
   startSdkHost()
-  registerQuakeHotkey(settings.quakeHotkey)
+  registerQuakeHotkey(settings.globalHotkey)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -299,8 +299,11 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('window-all-closed', () => {
+app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+})
+
+app.on('window-all-closed', () => {
   ptyProcess?.kill()
   sdkProcess?.kill()
   if (process.platform !== 'darwin') {

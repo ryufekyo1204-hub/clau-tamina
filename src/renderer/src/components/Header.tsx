@@ -9,8 +9,11 @@ interface HeaderProps {
 
 export function Header({ totalCostUsd, onSettingsClick }: HeaderProps): React.ReactElement {
   const { bypassPermissions, setBypassPermissions, totalInputTokens, totalOutputTokens, parallelAgents } = useSessionStore()
-  const errorAgentCount = Object.values(parallelAgents).filter((a) => a.status === 'error').length
-  const runningAgentCount = Object.values(parallelAgents).filter((a) => a.status === 'running').length
+
+  // Count agents in each state for header badges (Wave Terminal block badges roll-up)
+  const agentList = Object.values(parallelAgents)
+  const runningCount = agentList.filter((a) => a.status === 'running').length
+  const errorCount   = agentList.filter((a) => a.status === 'error').length
 
   const formatCost = (usd: number): string =>
     usd < 0.001 ? '$0.000' : `$${usd.toFixed(3)}`
@@ -36,39 +39,47 @@ export function Header({ totalCostUsd, onSettingsClick }: HeaderProps): React.Re
       </div>
 
       <div className="header-right">
-        {errorAgentCount > 0 && (
+        {/* Agent status badges (Wave Terminal block badges roll-up) */}
+        {runningCount > 0 && (
           <span
             style={{
-              background: 'var(--status-error)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              padding: '1px 7px',
               borderRadius: '999px',
-              padding: '1px 6px',
+              background: 'rgba(88,193,66,0.15)',
+              border: '1px solid rgba(88,193,66,0.35)',
               fontSize: 'var(--text-xs)',
-              color: '#fff',
               fontFamily: 'var(--font-mono)',
-              fontWeight: 700,
-              cursor: 'default'
+              color: 'var(--status-running)',
+              fontWeight: 600
             }}
-            title={`エラー中のエージェント: ${errorAgentCount}`}
+            title={`${runningCount}体のエージェントが実行中`}
           >
-            ✗ {errorAgentCount}
+            <span style={{ fontSize: '8px' }}>⚙</span>
+            {runningCount}
           </span>
         )}
-        {runningAgentCount > 0 && (
+        {errorCount > 0 && (
           <span
             style={{
-              background: 'rgba(88,193,66,0.15)',
-              border: '1px solid var(--status-running)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              padding: '1px 7px',
               borderRadius: '999px',
-              padding: '1px 6px',
+              background: 'rgba(229,77,46,0.15)',
+              border: '1px solid rgba(229,77,46,0.4)',
               fontSize: 'var(--text-xs)',
-              color: 'var(--status-running)',
               fontFamily: 'var(--font-mono)',
-              fontWeight: 700,
-              cursor: 'default'
+              color: 'var(--status-error)',
+              fontWeight: 600
             }}
-            title={`実行中のエージェント: ${runningAgentCount}`}
+            title={`${errorCount}体のエージェントがエラー`}
           >
-            ⚙ {runningAgentCount}
+            <span style={{ fontSize: '8px' }}>✗</span>
+            {errorCount}
           </span>
         )}
         <span

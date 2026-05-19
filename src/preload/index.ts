@@ -1,19 +1,18 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 
+export interface ProcessInfo {
+  name: string
+  cpu: number
+  memMb: number
+}
+
 export interface ApiSettings {
   bypassPermissions: boolean
   windowBounds: { width: number; height: number; x?: number; y?: number }
   splitRatio: number
   currentWorkingDir: string
-  quakeHotkey: string
-}
-
-export interface ProcessEntry {
-  name: string
-  pid: number
-  cpu: number
-  mem: number
+  globalHotkey: string
 }
 
 export interface SdkMessage {
@@ -111,8 +110,8 @@ const api = {
   // File system
   listDirectory: (dirPath: string): Promise<FileEntry[]> => ipcRenderer.invoke('fs:list-dir', dirPath),
 
-  // Process list
-  listProcesses: (): Promise<ProcessEntry[]> => ipcRenderer.invoke('process:list')
+  // Process viewer (A-1)
+  listProcesses: (): Promise<ProcessInfo[]> => ipcRenderer.invoke('process:list')
 }
 
 contextBridge.exposeInMainWorld('api', api)

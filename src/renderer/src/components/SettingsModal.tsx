@@ -21,39 +21,41 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   } = useSessionStore()
   const [activeTab, setActiveTab] = useState<SettingsTab>('terminal')
   const [cwdInput, setCwdInput] = useState(currentWorkingDir)
-  const [quakeHotkey, setQuakeHotkey] = useState('Ctrl+Alt+T')
-  const [hotkeyInput, setHotkeyInput] = useState('')
+  const [globalHotkey, setGlobalHotkey] = useState('Ctrl+Alt+T')
+  const [hotkeyInput, setHotkeyInput] = useState('Ctrl+Alt+T')
   const [hotkeyEditing, setHotkeyEditing] = useState(false)
-
-  useEffect(() => {
-    if (open) {
-      window.api.getSettings().then((s) => {
-        setQuakeHotkey(s.quakeHotkey ?? 'Ctrl+Alt+T')
-        setHotkeyInput(s.quakeHotkey ?? 'Ctrl+Alt+T')
-      })
-    }
-  }, [open])
 
   // Sync input when currentWorkingDir is updated externally (e.g. from FileTreePane)
   useEffect(() => {
     setCwdInput(currentWorkingDir)
   }, [currentWorkingDir])
 
-  if (!open) return null
+  // Load persisted hotkey from settings on modal open
+  useEffect(() => {
+    if (open) {
+      window.api.getSettings().then((s) => {
+        const hotkey = s.globalHotkey ?? 'Ctrl+Alt+T'
+        setGlobalHotkey(hotkey)
+        setHotkeyInput(hotkey)
+      })
+    }
+  }, [open])
 
-  const handleHotkeyApply = async () => {
-    const trimmed = hotkeyInput.trim()
-    if (!trimmed) return
-    await window.api.setSetting('quakeHotkey', trimmed)
-    setQuakeHotkey(trimmed)
-    setHotkeyEditing(false)
-  }
+  if (!open) return null
 
   const handleCwdApply = () => {
     const trimmed = cwdInput.trim()
     if (!trimmed) return
     setCwd(trimmed)
-    window.api.setSetting('currentWorkingDir', trimmed)
+    void window.api.setSetting('currentWorkingDir', trimmed)
+  }
+
+  const handleHotkeyApply = () => {
+    const trimmed = hotkeyInput.trim()
+    if (!trimmed) return
+    void window.api.setSetting('globalHotkey', trimmed)
+    setGlobalHotkey(trimmed)
+    setHotkeyEditing(false)
   }
 
   return (
@@ -277,6 +279,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                 Quake Mode
               </div>
 
+              {/* Global Hotkey — Quake Mode (A-4) */}
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                   グローバルホットキー（ウィンドウ表示/非表示）
@@ -287,7 +290,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                       type="text"
                       value={hotkeyInput}
                       onChange={(e) => setHotkeyInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { void handleHotkeyApply() } else if (e.key === 'Escape') setHotkeyEditing(false) }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleHotkeyApply()
+                        else if (e.key === 'Escape') setHotkeyEditing(false)
+                      }}
                       placeholder="例: Ctrl+Alt+T"
                       autoFocus
                       style={{
@@ -303,7 +309,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                       }}
                     />
                     <button
-                      onClick={() => { void handleHotkeyApply() }}
+                      onClick={handleHotkeyApply}
                       style={{
                         padding: '6px 12px',
                         background: 'var(--accent-subtle)',
@@ -349,10 +355,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                         fontFamily: 'var(--font-mono)'
                       }}
                     >
-                      {quakeHotkey}
+                      {globalHotkey}
                     </code>
                     <button
-                      onClick={() => { setHotkeyInput(quakeHotkey); setHotkeyEditing(true) }}
+                      onClick={() => { setHotkeyInput(globalHotkey); setHotkeyEditing(true) }}
                       style={{
                         padding: '4px 10px',
                         background: 'transparent',
@@ -370,7 +376,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                 )}
                 <div style={{ marginTop: '6px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', lineHeight: '1.5' }}>
                   他のアプリ使用中でもこのキーでウィンドウを瞬時に呼び出せます。<br />
-                  形式: Ctrl+Alt+T / Ctrl+Shift+Space など
+                  形式: Ctrl+Alt+T / Ctrl+Shift+Space / F12 など
                 </div>
               </div>
             </div>
