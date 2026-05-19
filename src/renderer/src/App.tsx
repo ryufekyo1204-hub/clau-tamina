@@ -48,12 +48,21 @@ import { useSessionStore } from './store/session'
 export function App(): React.ReactElement {
   const { totalCostUsd, setSplitRatio, setBypassPermissions, setCwd, loadFontSettings } = useSessionStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [chatVisible, setChatVisible] = useState(true)
+  const [tabBarOrientation, setTabBarOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
+
+  // Chat toggle via Ctrl+Shift+A globalShortcut (A-1)
+  useEffect(() => {
+    const off = window.api.onChatToggle(() => setChatVisible((v) => !v))
+    return off
+  }, [])
 
   useEffect(() => {
     window.api.getSettings().then((s) => {
       setSplitRatio(s.splitRatio)
       setBypassPermissions(s.bypassPermissions)
       setCwd(s.currentWorkingDir)
+      setTabBarOrientation(s.tabBarOrientation ?? 'horizontal')
       // Load persisted font settings if present
       const anyS = s as Record<string, unknown>
       const fontSize = typeof anyS['fontSizeTerminal'] === 'number' ? anyS['fontSizeTerminal'] : 14
@@ -63,6 +72,14 @@ export function App(): React.ReactElement {
       loadFontSettings(fontSize, fontFamily)
     })
   }, [setSplitRatio, setBypassPermissions, setCwd, loadFontSettings])
+
+  // Re-sync tabBarOrientation when settings modal closes
+  const handleSettingsClose = () => {
+    setSettingsOpen(false)
+    window.api.getSettings().then((s) => {
+      setTabBarOrientation(s.tabBarOrientation ?? 'horizontal')
+    })
+  }
 
   return (
     <div
@@ -75,12 +92,18 @@ export function App(): React.ReactElement {
       }}
     >
       <ErrorBoundary>
-        <Header totalCostUsd={totalCostUsd} onSettingsClick={() => setSettingsOpen(true)} />
+        <Header
+          totalCostUsd={totalCostUsd}
+          onSettingsClick={() => setSettingsOpen(true)}
+          chatVisible={chatVisible}
+          onChatToggle={() => setChatVisible((v) => !v)}
+        />
       </ErrorBoundary>
       <SplitLayout
+        chatVisible={chatVisible}
         left={
           <ErrorBoundary>
-            <LeftPanel terminalPane={<TerminalPane />} />
+            <LeftPanel terminalPane={<TerminalPane />} tabBarOrientation={tabBarOrientation} />
           </ErrorBoundary>
         }
         right={
@@ -94,7 +117,7 @@ export function App(): React.ReactElement {
       />
       <ErrorBoundary><AgentCards /></ErrorBoundary>
       <StatusBar />
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal open={settingsOpen} onClose={handleSettingsClose} />
     </div>
   )
 }

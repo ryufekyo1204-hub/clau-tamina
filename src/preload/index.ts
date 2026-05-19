@@ -13,6 +13,7 @@ export interface ApiSettings {
   splitRatio: number
   currentWorkingDir: string
   globalHotkey: string
+  tabBarOrientation: 'horizontal' | 'vertical'
 }
 
 export interface SdkMessage {
@@ -71,6 +72,11 @@ const api = {
     ipcRenderer.on('pty:exit', handler)
     return () => ipcRenderer.removeListener('pty:exit', handler)
   },
+  onPtyBadgeUpdate: (cb: (text: string) => void) => {
+    const handler = (_: IpcRendererEvent, text: string) => cb(text)
+    ipcRenderer.on('pty:badge-update', handler)
+    return () => ipcRenderer.removeListener('pty:badge-update', handler)
+  },
 
   // SDK
   sdkQuery: (prompt: string, options: Record<string, unknown>) =>
@@ -111,7 +117,14 @@ const api = {
   listDirectory: (dirPath: string): Promise<FileEntry[]> => ipcRenderer.invoke('fs:list-dir', dirPath),
 
   // Process viewer (A-1)
-  listProcesses: (): Promise<ProcessInfo[]> => ipcRenderer.invoke('process:list')
+  listProcesses: (): Promise<ProcessInfo[]> => ipcRenderer.invoke('process:list'),
+
+  // Chat toggle (A-1 slide-out panel)
+  onChatToggle: (cb: () => void) => {
+    const handler = (_: IpcRendererEvent) => { cb(); return _ }
+    ipcRenderer.on('chat:toggle', handler)
+    return () => ipcRenderer.removeListener('chat:toggle', handler)
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)

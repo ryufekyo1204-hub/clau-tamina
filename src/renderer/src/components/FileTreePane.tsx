@@ -22,8 +22,15 @@ function FileRow({
 }): React.ReactElement {
   const [hovered, setHovered] = useState(false)
 
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.setData('text/plain', entry.path)
+    e.dataTransfer.effectAllowed = 'copy'
+  }
+
   return (
     <div
+      draggable={true}
+      onDragStart={handleDragStart}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{

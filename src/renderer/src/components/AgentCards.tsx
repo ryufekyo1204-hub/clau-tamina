@@ -30,7 +30,13 @@ interface ProcessInfo {
 }
 
 // Pill-shaped badge component (Wave Terminal v0.14.2 block badges)
-function StatusBadge({ status }: { status: ParallelAgent['status'] }): React.ReactElement {
+function StatusBadge({
+  status,
+  customText
+}: {
+  status: ParallelAgent['status']
+  customText?: string
+}): React.ReactElement {
   const { icon, label } = STATUS_BADGE[status]
   const color = STATUS_COLOR[status]
   const bg = STATUS_BG[status]
@@ -55,7 +61,7 @@ function StatusBadge({ status }: { status: ParallelAgent['status'] }): React.Rea
         }}
       >
         <span style={{ fontSize: '9px' }}>{icon}</span>
-        {label}
+        {customText ?? label}
       </span>
       <style>{`
         @keyframes badge-pulse {
@@ -64,6 +70,43 @@ function StatusBadge({ status }: { status: ParallelAgent['status'] }): React.Rea
         }
       `}</style>
     </>
+  )
+}
+
+// Terminal OSC badge display — shows badge from PTY output (A-2 wsh badge)
+function PtyBadge(): React.ReactElement | null {
+  const [badgeText, setBadgeText] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const off = window.api.onPtyBadgeUpdate((text) => {
+      setBadgeText(text || null)
+    })
+    return off
+  }, [])
+
+  if (!badgeText) return null
+
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        padding: '2px 8px',
+        borderRadius: '999px',
+        background: 'rgba(83,180,234,0.12)',
+        border: '1px solid var(--status-waiting)',
+        fontSize: 'var(--text-xs)',
+        color: 'var(--status-waiting)',
+        fontFamily: 'var(--font-mono)',
+        fontWeight: 600,
+        lineHeight: 1.4,
+        whiteSpace: 'nowrap'
+      }}
+      title="ターミナルバッジ (OSC 9999)"
+    >
+      {badgeText}
+    </span>
   )
 }
 
@@ -351,8 +394,13 @@ export function AgentCards(): React.ReactElement | null {
   const { parallelAgents, focusedAgentId, setFocusedAgentId, removeParallelAgent } = useSessionStore()
   const agents = Object.values(parallelAgents)
 
-  // When no agents: only show ProcessViewer (collapsed by default, unobtrusive)
-  if (agents.length === 0) return <ProcessViewer />
+  // When no agents: only show ProcessViewer and PTY badge (collapsed by default, unobtrusive)
+  if (agents.length === 0) return (
+    <>
+      <PtyBadge />
+      <ProcessViewer />
+    </>
+  )
 
   const focusedAgent = focusedAgentId ? parallelAgents[focusedAgentId] : null
 
@@ -366,7 +414,8 @@ export function AgentCards(): React.ReactElement | null {
           padding: '8px 10px',
           borderTop: '1px solid var(--border-subtle)',
           flexShrink: 0,
-          background: 'var(--app-bg)'
+          background: 'var(--app-bg)',
+          alignItems: 'flex-start'
         }}
       >
         {agents.map((agent) => (
@@ -377,6 +426,7 @@ export function AgentCards(): React.ReactElement | null {
             onRemove={() => removeParallelAgent(agent.id)}
           />
         ))}
+        <PtyBadge />
       </div>
 
       {/* Process Viewer — collapsible, below agent cards */}

@@ -5,9 +5,11 @@ import { SessionList } from './SessionList'
 interface HeaderProps {
   totalCostUsd: number
   onSettingsClick: () => void
+  chatVisible?: boolean
+  onChatToggle?: () => void
 }
 
-export function Header({ totalCostUsd, onSettingsClick }: HeaderProps): React.ReactElement {
+export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onChatToggle }: HeaderProps): React.ReactElement {
   const { bypassPermissions, setBypassPermissions, totalInputTokens, totalOutputTokens, parallelAgents } = useSessionStore()
 
   // Count agents in each state for header badges (Wave Terminal block badges roll-up)
@@ -92,6 +94,20 @@ export function Header({ totalCostUsd, onSettingsClick }: HeaderProps): React.Re
         </span>
         <span className="header-cost">{formatCost(totalCostUsd)}</span>
         <span className="header-model" style={{ color: 'var(--accent)' }}>Sonnet 4.6</span>
+        {onChatToggle && (
+          <button
+            className="settings-btn"
+            onClick={onChatToggle}
+            title={`チャットパネル ${chatVisible ? '非表示' : '表示'} (Ctrl+Shift+A)`}
+            style={{
+              color: chatVisible ? 'var(--accent)' : 'var(--text-muted)',
+              borderColor: chatVisible ? 'var(--border-accent)' : 'var(--border-subtle)',
+              background: chatVisible ? 'var(--accent-subtle)' : 'transparent'
+            }}
+          >
+            ≡
+          </button>
+        )}
         <button
           className="settings-btn"
           onClick={onSettingsClick}

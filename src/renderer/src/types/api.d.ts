@@ -10,6 +10,7 @@ export interface ApiSettings {
   splitRatio: number
   currentWorkingDir: string
   globalHotkey: string
+  tabBarOrientation: 'horizontal' | 'vertical'
 }
 
 export interface SdkMessage {
@@ -59,6 +60,7 @@ interface ClauTaminaApi {
   ptySpawn(cwd: string): void
   onPtyData(cb: (data: string) => void): () => void
   onPtyExit(cb: (code: number) => void): () => void
+  onPtyBadgeUpdate(cb: (text: string) => void): () => void
 
   sdkQuery(prompt: string, options: Record<string, unknown>): void
   sdkAbort(): void
@@ -79,6 +81,8 @@ interface ClauTaminaApi {
   listDirectory(dirPath: string): Promise<FileEntry[]>
 
   listProcesses(): Promise<ProcessInfo[]>
+
+  onChatToggle(cb: () => void): () => void
 }
 
 declare global {

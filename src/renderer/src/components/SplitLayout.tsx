@@ -4,9 +4,10 @@ import { useSessionStore } from '../store/session'
 interface SplitLayoutProps {
   left: React.ReactNode
   right: React.ReactNode
+  chatVisible?: boolean
 }
 
-export function SplitLayout({ left, right }: SplitLayoutProps): React.ReactElement {
+export function SplitLayout({ left, right, chatVisible = true }: SplitLayoutProps): React.ReactElement {
   const { splitRatio, setSplitRatio } = useSessionStore()
   const containerRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -70,8 +71,17 @@ export function SplitLayout({ left, right }: SplitLayoutProps): React.ReactEleme
         }}
       />
 
-      {/* Right pane */}
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
+      {/* Right pane — slide-out panel (A-1) */}
+      <div
+        style={{
+          flex: chatVisible ? 1 : '0 0 0px',
+          overflow: 'hidden',
+          display: 'flex',
+          transform: chatVisible ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1), flex 0.25s cubic-bezier(0.4,0,0.2,1)',
+          maxWidth: chatVisible ? undefined : 0
+        }}
+      >
         {right}
       </div>
     </div>

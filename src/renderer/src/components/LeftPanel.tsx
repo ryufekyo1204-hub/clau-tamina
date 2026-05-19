@@ -1,21 +1,28 @@
 import React, { useState } from 'react'
 import { FileTreePane } from './FileTreePane'
 import { ProcessViewer } from './ProcessViewer'
+import { SessionList } from './SessionList'
 
-type LeftTab = 'terminal' | 'files' | 'processes'
+type LeftTab = 'terminal' | 'files' | 'processes' | 'sessions'
 
 const TAB_LABEL: Record<LeftTab, string> = {
   terminal: 'ターミナル',
   files: 'ファイル',
-  processes: 'プロセス'
+  processes: 'プロセス',
+  sessions: 'セッション'
 }
 
 interface LeftPanelProps {
   terminalPane: React.ReactNode
+  tabBarOrientation?: 'horizontal' | 'vertical'
 }
 
-export function LeftPanel({ terminalPane }: LeftPanelProps): React.ReactElement {
+export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: LeftPanelProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState<LeftTab>('terminal')
+
+  const allTabs: LeftTab[] = tabBarOrientation === 'vertical'
+    ? ['terminal', 'files', 'sessions', 'processes']
+    : ['terminal', 'files', 'processes']
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -29,7 +36,7 @@ export function LeftPanel({ terminalPane }: LeftPanelProps): React.ReactElement 
           background: 'var(--app-bg)'
         }}
       >
-        {(['terminal', 'files', 'processes'] as LeftTab[]).map((tab) => (
+        {allTabs.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -79,6 +86,18 @@ export function LeftPanel({ terminalPane }: LeftPanelProps): React.ReactElement 
       >
         {activeTab === 'processes' && <ProcessViewer />}
       </div>
+      {tabBarOrientation === 'vertical' && (
+        <div
+          style={{
+            flex: 1,
+            overflow: 'hidden',
+            display: activeTab === 'sessions' ? 'flex' : 'none',
+            flexDirection: 'column'
+          }}
+        >
+          <SessionList orientation="vertical" />
+        </div>
+      )}
     </div>
   )
 }

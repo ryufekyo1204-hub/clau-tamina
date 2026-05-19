@@ -24,22 +24,29 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   const [globalHotkey, setGlobalHotkey] = useState('Ctrl+Alt+T')
   const [hotkeyInput, setHotkeyInput] = useState('Ctrl+Alt+T')
   const [hotkeyEditing, setHotkeyEditing] = useState(false)
+  const [tabBarOrientation, setTabBarOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
 
   // Sync input when currentWorkingDir is updated externally (e.g. from FileTreePane)
   useEffect(() => {
     setCwdInput(currentWorkingDir)
   }, [currentWorkingDir])
 
-  // Load persisted hotkey from settings on modal open
+  // Load persisted hotkey and orientation from settings on modal open
   useEffect(() => {
     if (open) {
       window.api.getSettings().then((s) => {
         const hotkey = s.globalHotkey ?? 'Ctrl+Alt+T'
         setGlobalHotkey(hotkey)
         setHotkeyInput(hotkey)
+        setTabBarOrientation(s.tabBarOrientation ?? 'horizontal')
       })
     }
   }, [open])
+
+  const handleTabBarOrientationChange = (val: 'horizontal' | 'vertical') => {
+    setTabBarOrientation(val)
+    void window.api.setSetting('tabBarOrientation', val)
+  }
 
   if (!open) return null
 
@@ -450,6 +457,39 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                 </div>
                 <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
                   現在: {currentWorkingDir || '未設定'}
+                </div>
+              </div>
+
+              {/* Tab bar orientation (A-4) */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  タブバー方向
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {(['horizontal', 'vertical'] as const).map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => handleTabBarOrientationChange(val)}
+                      style={{
+                        flex: 1,
+                        padding: '6px 0',
+                        borderRadius: '6px',
+                        fontSize: 'var(--text-xs)',
+                        fontFamily: 'var(--font-ui)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        border: tabBarOrientation === val ? '1px solid var(--border-accent)' : '1px solid var(--border-subtle)',
+                        background: tabBarOrientation === val ? 'var(--accent-subtle)' : 'transparent',
+                        color: tabBarOrientation === val ? 'var(--accent)' : 'var(--text-secondary)',
+                        transition: 'background 0.15s, border-color 0.15s, color 0.15s'
+                      }}
+                    >
+                      {val === 'horizontal' ? '横 (標準)' : '縦 (サイドバー)'}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                  縦モードにするとセッション一覧が左パネルのタブに追加されます
                 </div>
               </div>
 

@@ -106,7 +106,11 @@ function SessionRow({
   )
 }
 
-export function SessionList(): React.ReactElement {
+interface SessionListProps {
+  orientation?: 'horizontal' | 'vertical'
+}
+
+export function SessionList({ orientation = 'horizontal' }: SessionListProps): React.ReactElement {
   const [open, setOpen] = useState(false)
   const [searchText, setSearchText] = useState('')
   const { savedSessions, loadSavedSessions, saveCurrentSession, restoreSession, deleteSession, clearMessages } =
@@ -159,6 +163,74 @@ export function SessionList(): React.ReactElement {
   const filteredSessions = searchText.trim()
     ? savedSessions.filter((s) => s.title.toLowerCase().includes(searchText.toLowerCase()))
     : savedSessions
+
+  // Vertical mode: inline list (no dropdown trigger)
+  if (orientation === 'vertical') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        {/* Actions row */}
+        <div style={{ display: 'flex', gap: '4px', padding: '6px 8px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+          <button
+            onClick={() => { clearMessages() }}
+            style={{
+              flex: 1, padding: '4px 0', borderRadius: '6px',
+              fontSize: 'var(--text-xs)', color: 'var(--text-secondary)',
+              border: '1px solid var(--border-subtle)', background: 'transparent',
+              cursor: 'pointer', fontFamily: 'var(--font-ui)', fontWeight: 600
+            }}
+          >
+            + 新規
+          </button>
+          <button
+            onClick={() => { void saveCurrentSession(); void loadSavedSessions() }}
+            style={{
+              flex: 1, padding: '4px 0', borderRadius: '6px',
+              fontSize: 'var(--text-xs)', color: 'var(--accent)',
+              border: '1px solid var(--border-accent)', background: 'var(--accent-subtle)',
+              cursor: 'pointer', fontFamily: 'var(--font-ui)', fontWeight: 600
+            }}
+          >
+            保存
+          </button>
+        </div>
+        {/* Search */}
+        <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+          <input
+            type="text"
+            placeholder="検索..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            style={{
+              width: '100%', padding: '4px 6px',
+              background: 'var(--app-bg)', border: '1px solid var(--border-default)',
+              borderRadius: '4px', color: 'var(--text-primary)',
+              fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+        {/* Session rows */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px' }}>
+          {(searchText.trim()
+            ? savedSessions.filter((s) => s.title.toLowerCase().includes(searchText.toLowerCase()))
+            : savedSessions
+          ).map((s) => (
+            <SessionRow
+              key={s.id}
+              session={s}
+              onRestore={(id) => { void restoreSession(id) }}
+              onDelete={(id) => { void deleteSession(id) }}
+            />
+          ))}
+          {savedSessions.length === 0 && (
+            <div style={{ padding: '16px', textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+              保存済みセッションはありません
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div ref={popoverRef} style={{ position: 'relative' }}>

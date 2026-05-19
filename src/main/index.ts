@@ -30,6 +30,7 @@ interface Settings {
   splitRatio: number
   currentWorkingDir: string
   globalHotkey: string   // Quake Mode hotkey, e.g. "Ctrl+Alt+T"
+  tabBarOrientation: 'horizontal' | 'vertical'
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -37,7 +38,8 @@ const DEFAULT_SETTINGS: Settings = {
   windowBounds: { width: 1280, height: 800 },
   splitRatio: 0.55,
   currentWorkingDir: process.env.USERPROFILE ?? 'C:\\Users',
-  globalHotkey: 'Ctrl+Alt+T'
+  globalHotkey: 'Ctrl+Alt+T',
+  tabBarOrientation: 'horizontal'
 }
 
 function loadSettings(): Settings {
@@ -71,20 +73,34 @@ let sdkQueryId = 0
 
 // ---- Quake Mode: globalShortcut (A-4) ----
 function registerQuakeHotkey(hotkey: string): void {
-  globalShortcut.unregisterAll()
-  if (!hotkey) return
+  // Re-register only the quake hotkey; chat toggle is always registered
+  if (hotkey) {
+    try {
+      globalShortcut.register(hotkey, () => {
+        if (!mainWindow) return
+        if (mainWindow.isVisible() && mainWindow.isFocused()) {
+          mainWindow.hide()
+        } else {
+          mainWindow.show()
+          mainWindow.focus()
+        }
+      })
+    } catch {
+      // Silently ignore invalid accelerator strings
+    }
+  }
+}
+
+// ---- Chat toggle shortcut (A-1 slide-out panel) ----
+function registerChatToggleShortcut(): void {
   try {
-    globalShortcut.register(hotkey, () => {
-      if (!mainWindow) return
-      if (mainWindow.isVisible() && mainWindow.isFocused()) {
-        mainWindow.hide()
-      } else {
-        mainWindow.show()
-        mainWindow.focus()
+    globalShortcut.register('Ctrl+Shift+A', () => {
+      if (mainWindow) {
+        mainWindow.webContents.send('chat:toggle')
       }
     })
   } catch {
-    // Silently ignore invalid accelerator strings
+    // Silently ignore
   }
 }
 
@@ -155,6 +171,8 @@ function startPtyHost(): void {
       mainWindow.webContents.send('pty:data', m.data)
     } else if (m.type === 'exit') {
       mainWindow.webContents.send('pty:exit', m.exitCode)
+    } else if (m.type === 'badge-update') {
+      mainWindow.webContents.send('pty:badge-update', m.text)
     }
   })
 
@@ -255,8 +273,10 @@ ipcMain.handle('settings:get', () => settings)
 ipcMain.handle('settings:set', (_, key: string, value: unknown) => {
   (settings as Record<string, unknown>)[key] = value
   saveSettings(settings)
-  // Re-register global hotkey if it changed
+  // Re-register global hotkeys if quake hotkey changed
   if (key === 'globalHotkey' && typeof value === 'string') {
+    globalShortcut.unregisterAll()
+    registerChatToggleShortcut()
     registerQuakeHotkey(value)
   }
   return settings
@@ -290,6 +310,7 @@ app.whenReady().then(() => {
   mainWindow = createWindow()
   startPtyHost()
   startSdkHost()
+  registerChatToggleShortcut()
   registerQuakeHotkey(settings.globalHotkey)
 
   app.on('activate', () => {

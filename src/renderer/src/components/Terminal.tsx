@@ -68,6 +68,20 @@ export function TerminalPane(): React.ReactElement {
     termRef.current = term
     fitRef.current = fitAddon
 
+    // Drag-and-drop file path support (A-3)
+    const termElement = containerRef.current
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault()
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+    }
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault()
+      const path = e.dataTransfer?.getData('text/plain')
+      if (path) window.api.ptyInput(path)
+    }
+    termElement.addEventListener('dragover', handleDragOver)
+    termElement.addEventListener('drop', handleDrop)
+
     // Send keystrokes to PTY
     const onData = term.onData((data) => window.api.ptyInput(data))
 
@@ -89,6 +103,10 @@ export function TerminalPane(): React.ReactElement {
       offPtyData,
       offPtyExit,
       () => ro.disconnect(),
+      () => {
+        termElement.removeEventListener('dragover', handleDragOver)
+        termElement.removeEventListener('drop', handleDrop)
+      },
       () => term.dispose()
     ]
 
