@@ -43,6 +43,10 @@
 `research-report-{YYYYMMDD}.md` を作成。
 （次のサイクルで Step 3 に使われる）
 
+> **現フェーズ（Phase 4）では Wave Terminal UX の重点調査が必須。**
+> researcher.md の指示に従い、Wave Terminal のリリースノート・GitHub を精査し
+> Priority A に Wave Terminal 由来の機能を最低 3 件含めること。
+
 ## 最後に必ずやること
 - `git add -A && git commit -m "feat/fix: {変更内容の概要}"` で変更をコミット
 - `git push origin master` でプッシュ

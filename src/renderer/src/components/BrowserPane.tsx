@@ -35,10 +35,11 @@ function saveFavorites(favs: Favorite[]): void {
   localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs))
 }
 
+const GOOGLE_URL = 'https://www.google.com'
+
 export function BrowserPane(): React.ReactElement {
-  // Start blank — avoid auto-loading URLs that require auth
-  const [url, setUrl] = useState('about:blank')
-  const [inputUrl, setInputUrl] = useState('')
+  const [url, setUrl] = useState(GOOGLE_URL)
+  const [inputUrl, setInputUrl] = useState(GOOGLE_URL)
   const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<Favorite[]>(loadFavorites)
@@ -50,8 +51,14 @@ export function BrowserPane(): React.ReactElement {
   const navigate = useCallback((target: string): void => {
     let href = target.trim()
     if (!href) return
-    if (!href.startsWith('http://') && !href.startsWith('https://') && !href.includes('://')) {
+    if (href.includes('://')) {
+      // already has protocol — use as-is
+    } else if (/^[a-zA-Z0-9]([a-zA-Z0-9\-]*\.)+[a-zA-Z]{2,}/.test(href)) {
+      // looks like a domain (example.com, www.google.com)
       href = 'https://' + href
+    } else {
+      // treat as Google search query
+      href = `https://www.google.com/search?q=${encodeURIComponent(href)}`
     }
     setUrl(href)
     setInputUrl(href)
@@ -299,9 +306,9 @@ export function BrowserPane(): React.ReactElement {
           )}
         </div>
         <button
-          onClick={() => navigate('https://claude.ai')}
+          onClick={() => navigate(GOOGLE_URL)}
           style={navBtnStyle}
-          title="ホーム"
+          title="Google ホーム"
         >
           ⌂
         </button>
@@ -317,7 +324,7 @@ export function BrowserPane(): React.ReactElement {
           webpreferences="contextIsolation=false"
         />
 
-        {/* Empty state — shown when no URL is loaded */}
+        {/* Empty state — only when truly blank */}
         {url === 'about:blank' && !isLoading && (
           <div style={{
             position: 'absolute', inset: 0,
@@ -328,7 +335,7 @@ export function BrowserPane(): React.ReactElement {
             pointerEvents: 'none'
           }}>
             <span style={{ fontSize: '28px' }}>🌐</span>
-            <span>URL を入力して Enter で開く</span>
+            <span>URL またはキーワードを入力して Enter</span>
           </div>
         )}
 

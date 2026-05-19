@@ -12,11 +12,19 @@
 - WebSearch / WebFetch で最新トレンドを調べる
 
 ### 調査テーマ（優先順）
-1. **Wave Terminal / Warp / Hyper** の最新UXで clau-tamina に取り込めるもの
-2. **Claude Code SDK の新API** — 公式ドキュメントに追加された機能
-3. **Electron 最新版** — 使えるWeb API・パフォーマンス改善
-4. **Windows PowerShell 統合** — ConPTY の新機能・WSL2連携
-5. **マルチエージェントUX** — 他ツールの並列エージェント表示パターン
+
+> **Phase 4 サイクル中は Wave Terminal UX を特に重点的に調査すること。**
+> Wave Terminal のリリースノート・GitHub Issues・Discussions を必ず参照し、
+> 「clau-tamina に移植できる具体的なUXパターン」を最低3件以上 Priority A に挙げること。
+
+1. **Wave Terminal UX（最優先・重点調査）** — 最新リリースノート・Discussions・公式ドキュメントを精査。
+   取り込めるUIパターン・ショートカット・レイアウト設計・インタラクションを詳細に記述する。
+   参考: https://docs.waveterm.dev/releasenotes および GitHub waveterm/waveterm
+2. **Warp / Hyper** — Wave 以外の先行ターミナルGUIアプリのUX動向
+3. **Claude Code SDK の新API** — 公式ドキュメントに追加された機能
+4. **Electron 最新版** — 使えるWeb API・パフォーマンス改善
+5. **Windows PowerShell 統合** — ConPTY の新機能・WSL2連携
+6. **マルチエージェントUX** — 他ツールの並列エージェント表示パターン
 
 ### 除外条件
 - CLAUDE.md の設計思想（PowerShell一等市民・Wave Terminal踏襲）に反するもの

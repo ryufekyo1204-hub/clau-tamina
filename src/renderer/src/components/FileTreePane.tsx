@@ -2,9 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useSessionStore } from '../store/session'
 import type { FileEntry } from '../types/api'
 
-// Fetches directory listing via IPC
 async function fetchDir(dirPath: string): Promise<FileEntry[]> {
   return window.api.listDirectory(dirPath)
+}
+
+/** Drive root pattern: C:\ D:\ など */
+function isDriveRoot(p: string): boolean {
+  return /^[A-Za-z]:\\?$/.test(p)
 }
 
 function FileRow({
@@ -25,12 +29,16 @@ function FileRow({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '6px',
-        padding: '4px 8px',
+        gap: '8px',
+        padding: '5px 10px',
         cursor: 'pointer',
-        background: hovered ? 'var(--app-bg-hover)' : 'transparent',
+        background: hovered
+          ? entry.isDir ? 'rgba(217,119,87,0.08)' : 'var(--app-bg-hover)'
+          : 'transparent',
         borderRadius: '4px',
-        transition: 'background 0.1s ease'
+        borderLeft: hovered && entry.isDir ? '2px solid var(--accent)' : '2px solid transparent',
+        transition: 'background 0.1s ease, border-color 0.1s ease',
+        minHeight: '26px'
       }}
       onClick={() => {
         if (entry.isDir) {
@@ -39,21 +47,27 @@ function FileRow({
           onInsertPath(entry.path)
         }
       }}
-      title={entry.isDir ? 'クリックで移動' : 'クリックでパスをコピー'}
+      title={entry.isDir ? `${entry.path}  (クリックで移動)` : `${entry.path}  (クリックでパスをコピー)`}
     >
-      <span style={{ fontSize: '11px', flexShrink: 0, color: entry.isDir ? 'var(--status-waiting)' : 'var(--text-muted)' }}>
-        {entry.isDir ? '▶' : '·'}
+      <span style={{
+        fontSize: '12px',
+        flexShrink: 0,
+        color: entry.isDir ? 'var(--accent)' : 'var(--text-muted)',
+        lineHeight: 1
+      }}>
+        {entry.isDir ? '▸' : '·'}
       </span>
       <span
         style={{
-          fontSize: 'var(--text-sm)',
+          fontSize: 'var(--text-base)',
           color: entry.isDir ? 'var(--text-primary)' : 'var(--text-secondary)',
           overflow: 'hidden',
           whiteSpace: 'nowrap',
           textOverflow: 'ellipsis',
           flex: 1,
           fontFamily: entry.isDir ? 'var(--font-ui)' : 'var(--font-mono)',
-          fontWeight: entry.isDir ? 600 : 400
+          fontWeight: entry.isDir ? 600 : 400,
+          letterSpacing: entry.isDir ? '0.01em' : 0
         }}
       >
         {entry.name}
@@ -64,20 +78,28 @@ function FileRow({
 
 export function FileTreePane(): React.ReactElement {
   const { currentWorkingDir, setCwd } = useSessionStore()
-  const [currentPath, setCurrentPath] = useState(currentWorkingDir || 'C:\\')
+  // Initialize once from CWD; browsing never resets back automatically
+  const initPath = currentWorkingDir || 'C:\\'
+  const [currentPath, setCurrentPath] = useState(initPath)
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [editingPath, setEditingPath] = useState(false)
+  const [pathInput, setPathInput] = useState(initPath)
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pathInputRef = useRef<HTMLInputElement>(null)
 
   const loadDir = useCallback(async (path: string) => {
     setIsLoading(true)
     setError(null)
     try {
-      const list = await fetchDir(path)
+      // Normalize drive root: 'C:' → 'C:\'
+      const normalized = /^[A-Za-z]:$/.test(path) ? path + '\\' : path
+      const list = await fetchDir(normalized)
       setEntries(list)
-      setCurrentPath(path)
+      setCurrentPath(normalized)
+      setPathInput(normalized)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'ディレクトリを読み込めませんでした')
     } finally {
@@ -85,23 +107,24 @@ export function FileTreePane(): React.ReactElement {
     }
   }, [])
 
-  // Load initial directory on mount and when cwd changes
+  // Load on mount only
   useEffect(() => {
-    const dir = currentWorkingDir || 'C:\\'
-    setCurrentPath(dir)
-    void loadDir(dir)
-  }, [currentWorkingDir, loadDir])
+    void loadDir(initPath)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigateUp = () => {
-    const parts = currentPath.replace(/[/\\]+$/, '').split(/[/\\]/)
-    if (parts.length <= 1) return
+    if (isDriveRoot(currentPath)) return
+    const normalized = currentPath.replace(/[/\\]+$/, '')
+    const parts = normalized.split(/[/\\]/)
     parts.pop()
-    const parent = parts.join('\\') || 'C:\\'
+    // ['C:'] → 'C:\'
+    const parent = parts.length === 1 && /^[A-Za-z]:$/.test(parts[0])
+      ? parts[0] + '\\'
+      : parts.join('\\') || 'C:\\'
     void loadDir(parent)
   }
 
   const handleInsertPath = (path: string) => {
-    // Copy path to clipboard for easy use in terminal/chat
     navigator.clipboard.writeText(path).catch(() => {})
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
     setCopied(path)
@@ -110,20 +133,30 @@ export function FileTreePane(): React.ReactElement {
 
   const handleSetAsCwd = () => {
     setCwd(currentPath)
-    // Fire-and-forget: persist to electron-store without blocking UI
     void window.api.setSetting('currentWorkingDir', currentPath)
   }
 
-  const displayPath = currentPath.length > 36
-    ? '…' + currentPath.slice(-34)
-    : currentPath
+  const handleGoToCwd = () => {
+    void loadDir(currentWorkingDir || 'C:\\')
+  }
+
+  const startEditPath = () => {
+    setPathInput(currentPath)
+    setEditingPath(true)
+    setTimeout(() => { pathInputRef.current?.select() }, 0)
+  }
+
+  const commitPathEdit = () => {
+    setEditingPath(false)
+    if (pathInput.trim()) void loadDir(pathInput.trim())
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', background: 'var(--app-bg)', position: 'relative' }}>
       {/* Toolbar */}
       <div
         style={{
-          height: '32px',
+          height: '34px',
           display: 'flex',
           alignItems: 'center',
           gap: '4px',
@@ -136,7 +169,8 @@ export function FileTreePane(): React.ReactElement {
         <button
           onClick={navigateUp}
           title="上のディレクトリへ"
-          style={toolBtnStyle}
+          style={{ ...toolBtnStyle, opacity: isDriveRoot(currentPath) ? 0.3 : 1 }}
+          disabled={isDriveRoot(currentPath)}
         >
           ↑
         </button>
@@ -147,24 +181,61 @@ export function FileTreePane(): React.ReactElement {
         >
           ↺
         </button>
-        <span
-          style={{
-            flex: 1,
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-muted)',
-            fontFamily: 'var(--font-mono)',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
-            textOverflow: 'ellipsis'
-          }}
-          title={currentPath}
+        {/* Path — click to edit, type any path directly */}
+        {editingPath ? (
+          <input
+            ref={pathInputRef}
+            value={pathInput}
+            onChange={(e) => setPathInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitPathEdit()
+              if (e.key === 'Escape') { setEditingPath(false); setPathInput(currentPath) }
+            }}
+            onBlur={commitPathEdit}
+            style={{
+              flex: 1,
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-mono)',
+              background: 'var(--app-bg)',
+              border: '1px solid var(--border-accent)',
+              borderRadius: '4px',
+              padding: '2px 6px',
+              outline: 'none'
+            }}
+          />
+        ) : (
+          <span
+            onClick={startEditPath}
+            style={{
+              flex: 1,
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-secondary)',
+              fontFamily: 'var(--font-mono)',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+              cursor: 'text',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              border: '1px solid transparent'
+            }}
+            title={`${currentPath}  (クリックでパスを編集)`}
+          >
+            {currentPath}
+          </span>
+        )}
+        <button
+          onClick={handleGoToCwd}
+          title="Claude AIの作業ディレクトリへ戻る"
+          style={toolBtnStyle}
         >
-          {displayPath}
-        </span>
+          ⌂
+        </button>
         <button
           onClick={handleSetAsCwd}
           title="このフォルダをClaude AIの作業ディレクトリに設定"
-          style={{ ...toolBtnStyle, fontSize: '9px', padding: '2px 6px', width: 'auto' }}
+          style={{ ...toolBtnStyle, fontSize: '9px', padding: '2px 6px', width: 'auto', color: 'var(--accent)' }}
         >
           CWD
         </button>
