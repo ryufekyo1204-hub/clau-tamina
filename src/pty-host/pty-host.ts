@@ -119,6 +119,44 @@ function processBgUpdateSequences(data: string): string {
   return data.replace(OSC_BGSET_RE, '')
 }
 
+// A-2 (Phase 10): OSC 9997 setmeta: ESC ] 9997 ; title=<text> [; icon=<icon>] BEL/ST
+const OSC_SETMETA_RE = /\x1b\]9997;title=([^;\x07\x1b]*?)(?:;icon=([^;\x07\x1b]*?))?(?:\x07|\x1b\\)/g
+
+/**
+ * Parse and strip OSC 9997 setmeta sequences (wsh setmeta equivalent).
+ * Sends setmeta messages to the parent process for any found.
+ * Returns the data with setmeta sequences removed.
+ */
+function processSetmetaSequences(data: string): string {
+  OSC_SETMETA_RE.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = OSC_SETMETA_RE.exec(data)) !== null) {
+    const title = match[1]
+    const icon = match[2] ?? undefined
+    process.parentPort.postMessage({ type: 'setmeta', title, icon })
+  }
+  return data.replace(OSC_SETMETA_RE, '')
+}
+
+// A-5 (Phase 10): rolling output buffer for error context (Active AI style)
+const MAX_BUFFER_LINES = 30
+let outputLineBuffer: string[] = []
+let currentPartialLine = ''
+
+function appendToLineBuffer(text: string): void {
+  // Strip ANSI escape sequences for readable context
+  const plain = text.replace(/\x1b\[[^A-Za-z]*[A-Za-z]/g, '').replace(/\x1b[()][AB012]/g, '')
+  currentPartialLine += plain
+  const lines = currentPartialLine.split('\n')
+  if (lines.length > 1) {
+    outputLineBuffer.push(...lines.slice(0, -1))
+    currentPartialLine = lines[lines.length - 1]
+    if (outputLineBuffer.length > MAX_BUFFER_LINES) {
+      outputLineBuffer = outputLineBuffer.slice(-MAX_BUFFER_LINES)
+    }
+  }
+}
+
 // OSC 9;4 ConEmu progress pattern: ESC ] 9 ; 4 ; <state> ; <value> BEL/ST
 // state: 0=off, 1=normal, 2=error, 3=indeterminate, 4=paused
 // value: 0-100
@@ -138,6 +176,13 @@ function processProgressSequences(data: string): { output: string; progress: { v
     const value = Number(match[2])
     lastProgress = { state, value }
     process.parentPort.postMessage({ type: 'progress-update', state, value })
+    // A-5: when error state (2) detected, send buffered output as error context
+    if (state === 2) {
+      const context = [...outputLineBuffer, currentPartialLine].join('\n').trim()
+      if (context) {
+        process.parentPort.postMessage({ type: 'error-context', output: context })
+      }
+    }
   }
   return { output: data.replace(OSC94_RE, ''), progress: lastProgress }
 }
@@ -191,6 +236,7 @@ function spawnPty(cwd: string): void {
     cleaned = processNotifySequences(cleaned)
     cleaned = processCwdSequences(cleaned)
     cleaned = processBgUpdateSequences(cleaned)
+    cleaned = processSetmetaSequences(cleaned)
     const { output: afterProgress } = processProgressSequences(cleaned)
     cleaned = afterProgress
     const { output, hasBell } = processBellSequences(cleaned)
@@ -198,6 +244,8 @@ function spawnPty(cwd: string): void {
       process.parentPort.postMessage({ type: 'bell' })
     }
     cleaned = output
+    // A-5: update rolling buffer for error context
+    appendToLineBuffer(cleaned)
     buffer += cleaned
     // flush when chunk >= 4KB
     if (buffer.length >= 4096) {

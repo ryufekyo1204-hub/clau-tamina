@@ -117,6 +117,17 @@ interface ClauTaminaApi {
 
   // Terminal scrollback save (A-5)
   saveScrollback(text: string): Promise<string | null>
+
+  // A-2 (Phase 10): OSC 9997 setmeta — tab title/icon from terminal
+  onPtySetMeta(cb: (title: string, icon?: string) => void): () => void
+
+  // A-5 (Phase 10): error context (Active AI style)
+  onPtyErrorContext(cb: (output: string) => void): () => void
+
+  // A-1 (Phase 10): Claude Code hooks
+  checkClaudeHooks(): Promise<boolean>
+  installClaudeHooks(): Promise<boolean>
+  removeClaudeHooks(): Promise<boolean>
 }
 
 declare global {

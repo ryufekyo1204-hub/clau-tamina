@@ -53,6 +53,16 @@ export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: Le
     }
   }, [])
 
+  // A-2 (Phase 10): OSC 9997 setmeta — dynamically update terminal tab label from shell
+  useEffect(() => {
+    const off = window.api.onPtySetMeta((title, icon) => {
+      const label = (icon ? icon + ' ' : '') + title
+      // Update in-memory label only (not persisted to electron-store)
+      setTabLabels((prev: Record<string, string>) => ({ ...prev, terminal: label }))
+    })
+    return off
+  }, [])
+
   // Focus inline input when editingTabId changes
   useEffect(() => {
     if (editingTabId !== null) {

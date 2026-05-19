@@ -1,7 +1,8 @@
 import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, shell, utilityProcess, Notification, dialog } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
-import { readdir, stat, writeFile } from 'fs/promises'
+import { readdir, stat, writeFile, readFile, mkdir } from 'fs/promises'
+import { homedir } from 'os'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { config as loadDotenv } from 'dotenv'
@@ -231,6 +232,15 @@ function startPtyHost(): void {
       const state = typeof m.state === 'number' ? m.state : 0
       const value = typeof m.value === 'number' ? m.value : 0
       mainWindow.webContents.send('pty:progress', state, value)
+    } else if (m.type === 'setmeta') {
+      // A-2 (Phase 10): OSC 9997 setmeta — update tab title/icon
+      const title = typeof m.title === 'string' ? m.title : ''
+      const icon = typeof m.icon === 'string' ? m.icon : undefined
+      mainWindow.webContents.send('pty:setmeta', title, icon)
+    } else if (m.type === 'error-context') {
+      // A-5 (Phase 10): error context from ConEmu progress state 2
+      const output = typeof m.output === 'string' ? m.output : ''
+      mainWindow.webContents.send('pty:error-context', output)
     }
   })
 
@@ -345,6 +355,75 @@ ipcMain.handle('settings:set', (_, key: string, value: unknown) => {
     registerPaneShortcuts()
   }
   return settings
+})
+
+// ---- A-1 (Phase 10): Claude Code hooks install/remove/check ----
+const CLAUDE_SETTINGS_PATH = join(homedir(), '.claude', 'settings.json')
+// OSC 9999 badge sequence for PowerShell (Stop hook)
+const CLAUDE_HOOK_COMMAND = 'powershell.exe -NoProfile -Command "Write-Host -NoNewline \\"$([char]27)]9999;badge=DONE;color=#58c142$([char]7)\\""'
+
+interface ClaudeHookEntry {
+  matcher?: string
+  hooks?: Array<{ type: string; command: string }>
+}
+
+async function readClaudeSettings(): Promise<Record<string, unknown>> {
+  try {
+    const raw = await readFile(CLAUDE_SETTINGS_PATH, 'utf-8')
+    return JSON.parse(raw) as Record<string, unknown>
+  } catch {
+    return {}
+  }
+}
+
+function hasClaudeHook(data: Record<string, unknown>): boolean {
+  const hooks = data?.hooks as Record<string, unknown> | undefined
+  const stops = hooks?.Stop as ClaudeHookEntry[] | undefined
+  if (!Array.isArray(stops)) return false
+  return stops.some((s) =>
+    Array.isArray(s.hooks) && s.hooks.some((h) => h.command === CLAUDE_HOOK_COMMAND)
+  )
+}
+
+ipcMain.handle('claude:check-hooks', async () => {
+  const data = await readClaudeSettings()
+  return hasClaudeHook(data)
+})
+
+ipcMain.handle('claude:install-hooks', async () => {
+  try {
+    const data = await readClaudeSettings()
+    const hooks = (data.hooks ?? {}) as Record<string, unknown>
+    const stops = (Array.isArray(hooks.Stop) ? hooks.Stop : []) as ClaudeHookEntry[]
+    // Remove any existing clau-tamina hook entry
+    const filtered = stops.filter(
+      (s) => !Array.isArray(s.hooks) || !s.hooks.some((h) => h.command === CLAUDE_HOOK_COMMAND)
+    )
+    filtered.push({ matcher: '', hooks: [{ type: 'command', command: CLAUDE_HOOK_COMMAND }] })
+    hooks.Stop = filtered
+    data.hooks = hooks
+    const dir = join(CLAUDE_SETTINGS_PATH, '..')
+    await mkdir(dir, { recursive: true })
+    await writeFile(CLAUDE_SETTINGS_PATH, JSON.stringify(data, null, 2), 'utf-8')
+    return true
+  } catch {
+    return false
+  }
+})
+
+ipcMain.handle('claude:remove-hooks', async () => {
+  try {
+    const data = await readClaudeSettings()
+    const hooks = data.hooks as Record<string, unknown> | undefined
+    if (!hooks || !Array.isArray(hooks.Stop)) return true
+    hooks.Stop = (hooks.Stop as ClaudeHookEntry[]).filter(
+      (s) => !Array.isArray(s.hooks) || !s.hooks.some((h) => h.command === CLAUDE_HOOK_COMMAND)
+    )
+    await writeFile(CLAUDE_SETTINGS_PATH, JSON.stringify(data, null, 2), 'utf-8')
+    return true
+  } catch {
+    return false
+  }
 })
 
 // IPC handler — Terminal scrollback save (A-5)

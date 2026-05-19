@@ -13,9 +13,18 @@ export function TerminalPane(): React.ReactElement {
   const [savingScrollback, setSavingScrollback] = useState(false)
   // A-2: OSC 9998 terminal background color
   const [bgColor, setBgColor] = useState<string | null>(null)
+  // A-3 (Phase 10): Block Magnify
+  const [magnified, setMagnified] = useState(false)
+  // A-5 (Phase 10): error context (Active AI style)
+  const [errorContext, setErrorContext] = useState<string | null>(null)
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fontSizeTerminal = useSessionStore((s) => s.fontSizeTerminal)
   const fontFamilyTerminal = useSessionStore((s) => s.fontFamilyTerminal)
+  const currentWorkingDir = useSessionStore((s) => s.currentWorkingDir)
+  const bypassPermissions = useSessionStore((s) => s.bypassPermissions)
+  const isQuerying = useSessionStore((s) => s.isQuerying)
+  const addUserMessage = useSessionStore((s) => s.addUserMessage)
 
   // A-5: save scrollback to file via main process dialog
   const handleSaveScrollback = useCallback(async () => {
@@ -196,8 +205,73 @@ export function TerminalPane(): React.ReactElement {
     return off
   }, [])
 
+  // A-3 (Phase 10): Block Magnify — Ctrl+Shift+M shortcut + Escape to dismiss
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'M') {
+        e.preventDefault()
+        setMagnified((m) => !m)
+      } else if (e.key === 'Escape' && magnified) {
+        setMagnified(false)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [magnified])
+
+  // A-3: re-fit terminal after magnify state change
+  useEffect(() => {
+    const fitAddon = fitRef.current
+    if (!fitAddon) return
+    const id = setTimeout(() => fitAddon.fit(), 50)
+    return () => clearTimeout(id)
+  }, [magnified])
+
+  // A-5 (Phase 10): subscribe to error context from PTY host
+  useEffect(() => {
+    const off = window.api.onPtyErrorContext((output) => {
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+      setErrorContext(output)
+      errorTimerRef.current = setTimeout(() => setErrorContext(null), 5000)
+    })
+    return () => {
+      off()
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+    }
+  }, [])
+
+  // A-5: send error context to Claude
+  const handleAskClaude = useCallback(() => {
+    if (!errorContext || isQuerying) return
+    const prompt = `以下のターミナル出力でエラーが発生しました。原因と修正方法を教えてください:\n\n${errorContext}`
+    addUserMessage(prompt)
+    window.api.sdkQuery(prompt, { cwd: currentWorkingDir, bypassPermissions })
+    setErrorContext(null)
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
+  }, [errorContext, isQuerying, currentWorkingDir, bypassPermissions, addUserMessage])
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+    <>
+      {/* A-3: Magnify backdrop overlay */}
+      {magnified && (
+        <div
+          onClick={() => setMagnified(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1999,
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(6px) brightness(0.4)'
+          }}
+        />
+      )}
+    <div
+      style={
+        magnified
+          ? { position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', background: '#000000' }
+          : { display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }
+      }
+    >
       {/* Toolbar with save scrollback button */}
       <div
         style={{
@@ -250,7 +324,77 @@ export function TerminalPane(): React.ReactElement {
         >
           {savingScrollback ? '...' : '💾'}
         </button>
+        {/* A-3 (Phase 10): Block Magnify button */}
+        <button
+          onClick={() => setMagnified((m) => !m)}
+          title={magnified ? '縮小 (Esc)' : 'ターミナルを最大化 (Ctrl+Shift+M)'}
+          style={{
+            padding: '1px 6px',
+            background: magnified ? 'var(--accent-subtle)' : 'transparent',
+            border: magnified ? '1px solid var(--border-accent)' : '1px solid var(--border-subtle)',
+            borderRadius: '4px',
+            color: magnified ? 'var(--accent)' : 'var(--text-secondary)',
+            fontSize: 'var(--text-xs)',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-mono)',
+            transition: 'color 0.15s, border-color 0.15s, background 0.15s'
+          }}
+        >
+          {magnified ? '⊡' : '⛶'}
+        </button>
       </div>
+      {/* A-5 (Phase 10): error context "Claudeに聞く" button */}
+      {errorContext !== null && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '4px 8px',
+            background: 'rgba(229,77,46,0.12)',
+            borderBottom: '1px solid rgba(229,77,46,0.35)',
+            flexShrink: 0,
+            animation: 'error-ctx-fade 0.1s ease-out'
+          }}
+        >
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--status-error)', fontFamily: 'var(--font-mono)' }}>
+            ❌ エラーを検出
+          </span>
+          <button
+            onClick={handleAskClaude}
+            disabled={isQuerying}
+            style={{
+              padding: '2px 10px',
+              background: 'var(--accent-subtle)',
+              border: '1px solid var(--border-accent)',
+              borderRadius: '5px',
+              color: 'var(--accent)',
+              fontSize: 'var(--text-xs)',
+              fontWeight: 600,
+              cursor: isQuerying ? 'default' : 'pointer',
+              fontFamily: 'var(--font-ui)',
+              opacity: isQuerying ? 0.5 : 1,
+              transition: 'opacity 0.15s'
+            }}
+          >
+            Claude に聞く
+          </button>
+          <button
+            onClick={() => setErrorContext(null)}
+            style={{
+              marginLeft: 'auto',
+              padding: '2px 6px',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              fontSize: 'var(--text-xs)',
+              cursor: 'pointer'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <div
         ref={containerRef}
         style={{
@@ -262,5 +406,12 @@ export function TerminalPane(): React.ReactElement {
         }}
       />
     </div>
+    <style>{`
+      @keyframes error-ctx-fade {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+    `}</style>
+    </>
   )
 }

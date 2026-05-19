@@ -33,6 +33,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   const [maxBudgetUsd, setMaxBudgetUsdState] = useState<number>(0)
   // A-4: CWD color map
   const [cwdColorMap, setCwdColorMapState] = useState<Record<string, string>>({})
+  // A-1 (Phase 10): Claude Code hooks
+  const [hooksInstalled, setHooksInstalled] = useState<boolean | null>(null)
+  const [hooksLoading, setHooksLoading] = useState(false)
 
   // Sync input when currentWorkingDir is updated externally (e.g. from FileTreePane)
   useEffect(() => {
@@ -53,6 +56,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
         setMaxBudgetUsdState(s.maxBudgetUsd ?? 0)
         setCwdColorMapState(s.cwdColorMap ?? {})
       })
+      window.api.checkClaudeHooks().then(setHooksInstalled).catch(() => setHooksInstalled(false))
     }
   }, [open])
 
@@ -536,6 +540,90 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                 </button>
                 <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
                   ディレクトリを移動するたびに自動でヘッダー色が切り替わります
+                </div>
+              </div>
+
+              {/* A-1 (Phase 10): Claude Code hooks */}
+              <div
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--accent)',
+                  fontWeight: 700,
+                  letterSpacing: '0.8px',
+                  textTransform: 'uppercase',
+                  marginBottom: '14px',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                Claude Code フック
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                  Claude 完了時バッジ通知 (Stop フック)
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: 'var(--text-xs)',
+                      fontFamily: 'var(--font-mono)',
+                      color: hooksInstalled === true ? 'var(--status-running)' : 'var(--text-muted)'
+                    }}
+                  >
+                    {hooksInstalled === null ? '確認中...' : hooksInstalled ? '✓ インストール済み' : '○ 未設定'}
+                  </span>
+                  <button
+                    disabled={hooksLoading || hooksInstalled === true}
+                    onClick={async () => {
+                      setHooksLoading(true)
+                      const ok = await window.api.installClaudeHooks()
+                      if (ok) setHooksInstalled(true)
+                      setHooksLoading(false)
+                    }}
+                    style={{
+                      padding: '3px 10px',
+                      background: 'var(--accent-subtle)',
+                      border: '1px solid var(--border-accent)',
+                      borderRadius: '6px',
+                      color: 'var(--accent)',
+                      fontSize: 'var(--text-xs)',
+                      fontWeight: 600,
+                      cursor: (hooksLoading || hooksInstalled === true) ? 'default' : 'pointer',
+                      opacity: (hooksLoading || hooksInstalled === true) ? 0.5 : 1,
+                      fontFamily: 'var(--font-ui)'
+                    }}
+                  >
+                    インストール
+                  </button>
+                  {hooksInstalled === true && (
+                    <button
+                      disabled={hooksLoading}
+                      onClick={async () => {
+                        setHooksLoading(true)
+                        const ok = await window.api.removeClaudeHooks()
+                        if (ok) setHooksInstalled(false)
+                        setHooksLoading(false)
+                      }}
+                      style={{
+                        padding: '3px 10px',
+                        background: 'transparent',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '6px',
+                        color: 'var(--status-error)',
+                        fontSize: 'var(--text-xs)',
+                        cursor: hooksLoading ? 'default' : 'pointer',
+                        opacity: hooksLoading ? 0.5 : 1,
+                        fontFamily: 'var(--font-ui)'
+                      }}
+                    >
+                      削除
+                    </button>
+                  )}
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                  ~/.claude/settings.json にフックを追加します。Claude が応答完了するとターミナルタブにバッジが表示されます。
                 </div>
               </div>
 

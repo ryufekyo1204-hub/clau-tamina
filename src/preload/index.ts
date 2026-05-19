@@ -182,7 +182,26 @@ const api = {
 
   // Terminal scrollback save (A-5)
   saveScrollback: (text: string): Promise<string | null> =>
-    ipcRenderer.invoke('pty:save-scrollback', text)
+    ipcRenderer.invoke('pty:save-scrollback', text),
+
+  // A-2 (Phase 10): OSC 9997 setmeta — tab title/icon from terminal
+  onPtySetMeta: (cb: (title: string, icon?: string) => void) => {
+    const handler = (_: IpcRendererEvent, title: string, icon?: string) => cb(title, icon)
+    ipcRenderer.on('pty:setmeta', handler)
+    return () => ipcRenderer.removeListener('pty:setmeta', handler)
+  },
+
+  // A-5 (Phase 10): error context from ConEmu progress state 2
+  onPtyErrorContext: (cb: (output: string) => void) => {
+    const handler = (_: IpcRendererEvent, output: string) => cb(output)
+    ipcRenderer.on('pty:error-context', handler)
+    return () => ipcRenderer.removeListener('pty:error-context', handler)
+  },
+
+  // A-1 (Phase 10): Claude Code hooks
+  checkClaudeHooks: (): Promise<boolean> => ipcRenderer.invoke('claude:check-hooks'),
+  installClaudeHooks: (): Promise<boolean> => ipcRenderer.invoke('claude:install-hooks'),
+  removeClaudeHooks: (): Promise<boolean> => ipcRenderer.invoke('claude:remove-hooks')
 }
 
 contextBridge.exposeInMainWorld('api', api)
