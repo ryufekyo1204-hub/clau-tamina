@@ -22,10 +22,12 @@ export interface ApiSettings {
   cursorBlink: boolean
   tabLabels?: Record<string, string>
   headerBackground?: string
+  maxBudgetUsd?: number
+  cwdColorMap?: Record<string, string>
 }
 
 export interface SdkMessage {
-  type: 'stream' | 'result' | 'tool-request' | 'error'
+  type: 'stream' | 'result' | 'tool-request' | 'error' | 'prompt_suggestion'
   id?: number
   agentId?: string
   content?: string
@@ -35,6 +37,7 @@ export interface SdkMessage {
   outputTokens?: number
   tool?: { name: string; input: unknown }
   error?: string
+  suggestion?: string
 }
 
 export interface SessionMessage {
@@ -71,7 +74,9 @@ interface ClauTaminaApi {
   ptySpawn(cwd: string): void
   onPtyData(cb: (data: string) => void): () => void
   onPtyExit(cb: (code: number) => void): () => void
-  onPtyBadgeUpdate(cb: (text: string) => void): () => void
+  onPtyBadgeUpdate(cb: (text: string, color?: string) => void): () => void
+  onPtyBgUpdate(cb: (color: string) => void): () => void
+  onPtyTabBell(cb: () => void): () => void
 
   sdkQuery(prompt: string, options: Record<string, unknown>): void
   sdkAbort(): void

@@ -35,10 +35,30 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
 
   // A-5: header background color
   const [headerBackground, setHeaderBackground] = useState<string | undefined>(undefined)
+  // A-4: CWD→header color map
+  const [cwdColorMap, setCwdColorMap] = useState<Record<string, string>>({})
   useEffect(() => {
     window.api.getSettings().then((s) => {
       setHeaderBackground(s.headerBackground)
+      setCwdColorMap(s.cwdColorMap ?? {})
     }).catch(() => { /* ignore */ })
+  }, [])
+
+  // A-4: subscribe to CWD updates and update header color from map
+  useEffect(() => {
+    const off = window.api.onPtyCwdUpdate((cwd) => {
+      window.api.getSettings().then((s) => {
+        const map = s.cwdColorMap ?? {}
+        setCwdColorMap(map)
+        if (map[cwd]) {
+          setHeaderBackground(map[cwd])
+        } else {
+          // Revert to base headerBackground setting when no mapping
+          setHeaderBackground(s.headerBackground)
+        }
+      }).catch(() => { /* ignore */ })
+    })
+    return off
   }, [])
 
   // Count agents in each state for header badges (Wave Terminal block badges roll-up)

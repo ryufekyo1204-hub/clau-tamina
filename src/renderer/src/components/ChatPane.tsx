@@ -121,7 +121,9 @@ export function ChatPane(): React.ReactElement {
     handleSdkMessage,
     setPendingTool,
     spawnParallelAgent,
-    handleAgentSdkMessage
+    handleAgentSdkMessage,
+    promptSuggestion,
+    setPromptSuggestion
   } = useSessionStore()
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -176,6 +178,8 @@ export function ChatPane(): React.ReactElement {
       return
     }
 
+    // A-3: clear suggestion when sending new message
+    setPromptSuggestion('')
     // Capture history BEFORE adding user message
     const history = messages.map((m) => ({ role: m.role, content: m.content }))
     addUserMessage(prompt)
@@ -303,6 +307,40 @@ export function ChatPane(): React.ReactElement {
         <ToolApprovalDialog />
         <div ref={messagesEndRef} />
       </div>
+
+      {/* A-3: Prompt suggestion chip */}
+      {promptSuggestion && !isQuerying && (
+        <div style={{ padding: '0 8px 4px 8px', flexShrink: 0 }}>
+          <button
+            onClick={() => {
+              setInput(promptSuggestion)
+              setPromptSuggestion('')
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '4px 10px',
+              background: 'var(--app-bg-elevated)',
+              border: '1px solid var(--border-accent)',
+              borderRadius: '12px',
+              color: 'var(--text-secondary)',
+              fontSize: 'var(--text-xs)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-ui)',
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              transition: 'background 0.15s, border-color 0.15s'
+            }}
+            title="クリックで入力欄にセット"
+          >
+            <span style={{ color: 'var(--accent)', flexShrink: 0 }}>↩</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{promptSuggestion}</span>
+          </button>
+        </div>
+      )}
 
       {/* Input area */}
       <div

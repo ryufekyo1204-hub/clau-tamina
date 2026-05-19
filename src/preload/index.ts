@@ -18,10 +18,12 @@ export interface ApiSettings {
   cursorBlink: boolean
   tabLabels?: Record<string, string>
   headerBackground?: string
+  maxBudgetUsd?: number
+  cwdColorMap?: Record<string, string>
 }
 
 export interface SdkMessage {
-  type: 'stream' | 'result' | 'tool-request' | 'error'
+  type: 'stream' | 'result' | 'tool-request' | 'error' | 'prompt_suggestion'
   id?: number
   agentId?: string
   content?: string
@@ -31,6 +33,7 @@ export interface SdkMessage {
   outputTokens?: number
   tool?: { name: string; input: unknown }
   error?: string
+  suggestion?: string
 }
 
 export interface SessionMessage {
@@ -76,10 +79,24 @@ const api = {
     ipcRenderer.on('pty:exit', handler)
     return () => ipcRenderer.removeListener('pty:exit', handler)
   },
-  onPtyBadgeUpdate: (cb: (text: string) => void) => {
-    const handler = (_: IpcRendererEvent, text: string) => cb(text)
+  onPtyBadgeUpdate: (cb: (text: string, color?: string) => void) => {
+    const handler = (_: IpcRendererEvent, text: string, color?: string) => cb(text, color)
     ipcRenderer.on('pty:badge-update', handler)
     return () => ipcRenderer.removeListener('pty:badge-update', handler)
+  },
+
+  // A-2: OSC 9998 terminal background color change
+  onPtyBgUpdate: (cb: (color: string) => void) => {
+    const handler = (_: IpcRendererEvent, color: string) => cb(color)
+    ipcRenderer.on('pty:bg-update', handler)
+    return () => ipcRenderer.removeListener('pty:bg-update', handler)
+  },
+
+  // A-1: tab bell notification
+  onPtyTabBell: (cb: () => void) => {
+    const handler = (_: IpcRendererEvent) => { cb(); return _ }
+    ipcRenderer.on('pty:tab-bell', handler)
+    return () => ipcRenderer.removeListener('pty:tab-bell', handler)
   },
 
   // SDK

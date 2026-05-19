@@ -17,6 +17,11 @@ interface LeftPanelProps {
   tabBarOrientation?: 'horizontal' | 'vertical'
 }
 
+interface TabBadge {
+  text: string
+  color?: string
+}
+
 export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: LeftPanelProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState<LeftTab>('terminal')
   // A-2: F2 tab rename
@@ -24,12 +29,28 @@ export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: Le
   const [editingTabId, setEditingTabId] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
   const editInputRef = useRef<HTMLInputElement>(null)
+  // A-1: tab badge (OSC 9999 + bell)
+  const [tabBadge, setTabBadge] = useState<TabBadge | null>(null)
 
   // Load persisted tab labels on mount
   useEffect(() => {
     window.api.getSettings().then((s) => {
       setTabLabels(s.tabLabels ?? {})
     }).catch(() => { /* ignore */ })
+  }, [])
+
+  // A-1: subscribe to badge updates and bell for tab badge display
+  useEffect(() => {
+    const offBadge = window.api.onPtyBadgeUpdate((text, color) => {
+      setTabBadge({ text, color })
+    })
+    const offBell = window.api.onPtyTabBell(() => {
+      setTabBadge({ text: '🔔', color: undefined })
+    })
+    return () => {
+      offBadge()
+      offBell()
+    }
   }, [])
 
   // Focus inline input when editingTabId changes
@@ -92,7 +113,10 @@ export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: Le
               cursor: 'pointer',
               transition: 'color 0.15s, border-color 0.15s'
             }}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab)
+              if (tab === 'terminal') setTabBadge(null)
+            }}
             onDoubleClick={() => startEditing(tab)}
           >
             {editingTabId === tab ? (
@@ -122,6 +146,9 @@ export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: Le
             ) : (
               <span
                 style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
                   color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-muted)',
                   fontSize: 'var(--text-sm)',
                   fontWeight: activeTab === tab ? 600 : 400,
@@ -131,6 +158,19 @@ export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: Le
                 title="ダブルクリックでリネーム"
               >
                 {tabLabels[tab] ?? TAB_LABEL[tab]}
+                {tab === 'terminal' && tabBadge !== null && activeTab !== 'terminal' && (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: tabBadge.color ?? 'var(--status-warning)',
+                      flexShrink: 0
+                    }}
+                    title={tabBadge.text}
+                  />
+                )}
               </span>
             )}
           </div>

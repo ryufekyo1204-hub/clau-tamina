@@ -35,6 +35,8 @@ interface Settings {
   cursorBlink: boolean
   tabLabels?: Record<string, string>
   headerBackground?: string
+  maxBudgetUsd?: number
+  cwdColorMap?: Record<string, string>
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -47,7 +49,9 @@ const DEFAULT_SETTINGS: Settings = {
   cursorStyle: 'block',
   cursorBlink: true,
   tabLabels: {},
-  headerBackground: undefined
+  headerBackground: undefined,
+  maxBudgetUsd: 0,
+  cwdColorMap: {}
 }
 
 function loadSettings(): Settings {
@@ -198,7 +202,10 @@ function startPtyHost(): void {
     } else if (m.type === 'exit') {
       mainWindow.webContents.send('pty:exit', m.exitCode)
     } else if (m.type === 'badge-update') {
-      mainWindow.webContents.send('pty:badge-update', m.text)
+      mainWindow.webContents.send('pty:badge-update', m.text, m.color)
+    } else if (m.type === 'bg-update') {
+      // A-2: OSC 9998 terminal background color change
+      mainWindow.webContents.send('pty:bg-update', m.color)
     } else if (m.type === 'notify') {
       // A-2: OSC 9 / OSC 777 desktop notification
       const title = typeof m.title === 'string' ? m.title : 'clau-tamina'
@@ -217,6 +224,8 @@ function startPtyHost(): void {
     } else if (m.type === 'bell') {
       // A-2: Bell visual indicator
       mainWindow.webContents.send('pty:bell')
+      // A-1: also send tab-badge for bell
+      mainWindow.webContents.send('pty:tab-bell')
     } else if (m.type === 'progress-update') {
       // A-1: OSC 9;4 ConEmu progress bar
       const state = typeof m.state === 'number' ? m.state : 0
@@ -244,6 +253,9 @@ function startSdkHost(): void {
       mainWindow.webContents.send(channel, m)
     } else if (m.type === 'tool-request') {
       mainWindow.webContents.send('sdk:tool-request', m)
+    } else if (m.type === 'prompt_suggestion') {
+      // A-3: prompt suggestion — forward only to main chat (no agentId)
+      mainWindow.webContents.send('sdk:message', m)
     }
   })
 
@@ -268,13 +280,16 @@ ipcMain.on('pty:spawn', (_, cwd: string) => {
 // IPC handlers — SDK
 ipcMain.on('sdk:query', (_, prompt: string, options: Record<string, unknown>) => {
   const id = ++sdkQueryId
-  sdkProcess?.postMessage({ type: 'query', id, prompt, options })
+  // A-5: inject maxBudgetUsd from settings
+  const enriched = { ...options, maxBudgetUsd: settings.maxBudgetUsd ?? 0 }
+  sdkProcess?.postMessage({ type: 'query', id, prompt, options: enriched })
 })
 
 // Agent-specific query: sends sdk:agent-message back (not sdk:message)
 ipcMain.on('sdk:agent-query', (_, agentId: string, prompt: string, options: Record<string, unknown>) => {
   const id = ++sdkQueryId
-  sdkProcess?.postMessage({ type: 'query', id, prompt, options: { ...options, agentId } })
+  const enriched = { ...options, agentId, maxBudgetUsd: settings.maxBudgetUsd ?? 0 }
+  sdkProcess?.postMessage({ type: 'query', id, prompt, options: enriched })
 })
 
 ipcMain.on('sdk:tool-response', (_, approve: boolean) => {

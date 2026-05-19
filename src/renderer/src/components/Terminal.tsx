@@ -11,6 +11,8 @@ export function TerminalPane(): React.ReactElement {
   const fitRef = useRef<FitAddon | null>(null)
   const cleanupRef = useRef<Array<() => void>>([])
   const [savingScrollback, setSavingScrollback] = useState(false)
+  // A-2: OSC 9998 terminal background color
+  const [bgColor, setBgColor] = useState<string | null>(null)
 
   const fontSizeTerminal = useSessionStore((s) => s.fontSizeTerminal)
   const fontFamilyTerminal = useSessionStore((s) => s.fontFamilyTerminal)
@@ -186,6 +188,14 @@ export function TerminalPane(): React.ReactElement {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [savingScrollback]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A-2: OSC 9998 terminal background color change
+  useEffect(() => {
+    const off = window.api.onPtyBgUpdate((color) => {
+      setBgColor(color)
+    })
+    return off
+  }, [])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       {/* Toolbar with save scrollback button */}
@@ -246,8 +256,9 @@ export function TerminalPane(): React.ReactElement {
         style={{
           flex: 1,
           overflow: 'hidden',
-          background: '#000000',
-          padding: '4px'
+          background: bgColor ?? '#000000',
+          padding: '4px',
+          transition: 'background 0.3s ease'
         }}
       />
     </div>

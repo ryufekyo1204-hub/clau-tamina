@@ -29,6 +29,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   const [cursorBlink, setCursorBlinkState] = useState(true)
   // A-5: header background color
   const [headerBackground, setHeaderBackgroundState] = useState<string>('#000000')
+  // A-5: maxBudgetUsd cost limit
+  const [maxBudgetUsd, setMaxBudgetUsdState] = useState<number>(0)
+  // A-4: CWD color map
+  const [cwdColorMap, setCwdColorMapState] = useState<Record<string, string>>({})
 
   // Sync input when currentWorkingDir is updated externally (e.g. from FileTreePane)
   useEffect(() => {
@@ -46,6 +50,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
         setCursorStyleState(s.cursorStyle ?? 'block')
         setCursorBlinkState(s.cursorBlink ?? true)
         setHeaderBackgroundState(s.headerBackground ?? '#000000')
+        setMaxBudgetUsdState(s.maxBudgetUsd ?? 0)
+        setCwdColorMapState(s.cwdColorMap ?? {})
       })
     }
   }, [open])
@@ -408,6 +414,128 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                 </div>
                 <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
                   複数ウィンドウを開くときにプロジェクトごとに色で区別できます
+                </div>
+              </div>
+
+              {/* A-5: maxBudgetUsd cost limit */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                  コスト上限（USD、0 = 無制限）
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={maxBudgetUsd}
+                    onChange={(e) => {
+                      const v = Math.max(0, Number(e.target.value))
+                      setMaxBudgetUsdState(v)
+                      void window.api.setSetting('maxBudgetUsd', v)
+                    }}
+                    style={{
+                      width: '90px',
+                      padding: '5px 8px',
+                      background: 'var(--app-bg)',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: '6px',
+                      color: 'var(--text-primary)',
+                      fontSize: 'var(--text-sm)',
+                      fontFamily: 'var(--font-mono)',
+                      outline: 'none'
+                    }}
+                  />
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                    {maxBudgetUsd === 0 ? '無制限' : `$${maxBudgetUsd.toFixed(2)} 上限`}
+                  </span>
+                </div>
+                <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                  1クエリあたりのコスト上限。超過した場合は自動停止します
+                </div>
+              </div>
+
+              {/* A-4: CWD color map */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                  ディレクトリ別カラーマップ
+                </div>
+                {Object.entries(cwdColorMap).length === 0 && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                    エントリーなし — 「現在の CWD を追加」で登録できます
+                  </div>
+                )}
+                {Object.entries(cwdColorMap).map(([path, color]) => (
+                  <div key={path} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                    <input
+                      type="color"
+                      value={color}
+                      onChange={(e) => {
+                        const updated = { ...cwdColorMap, [path]: e.target.value }
+                        setCwdColorMapState(updated)
+                        void window.api.setSetting('cwdColorMap', updated)
+                      }}
+                      style={{
+                        width: '30px',
+                        height: '24px',
+                        border: '1px solid var(--border-default)',
+                        borderRadius: '4px',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        padding: '1px',
+                        flexShrink: 0
+                      }}
+                    />
+                    <span style={{ flex: 1, fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {path}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const updated = { ...cwdColorMap }
+                        delete updated[path]
+                        setCwdColorMapState(updated)
+                        void window.api.setSetting('cwdColorMap', updated)
+                      }}
+                      style={{
+                        padding: '2px 7px',
+                        background: 'transparent',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '4px',
+                        color: 'var(--status-error)',
+                        fontSize: 'var(--text-xs)',
+                        cursor: 'pointer',
+                        flexShrink: 0
+                      }}
+                    >
+                      削除
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    const cwd = currentWorkingDir || 'C:\\'
+                    if (cwdColorMap[cwd]) return
+                    const updated = { ...cwdColorMap, [cwd]: '#000000' }
+                    setCwdColorMapState(updated)
+                    void window.api.setSetting('cwdColorMap', updated)
+                  }}
+                  style={{
+                    marginTop: '4px',
+                    padding: '5px 12px',
+                    background: 'var(--accent-subtle)',
+                    border: '1px solid var(--border-accent)',
+                    borderRadius: '6px',
+                    color: 'var(--accent)',
+                    fontSize: 'var(--text-xs)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-ui)'
+                  }}
+                >
+                  現在の CWD を追加 ({currentWorkingDir || '未設定'})
+                </button>
+                <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                  ディレクトリを移動するたびに自動でヘッダー色が切り替わります
                 </div>
               </div>
 

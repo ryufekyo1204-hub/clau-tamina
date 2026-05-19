@@ -55,6 +55,7 @@ async function runQuery(id: number, prompt: string, options: Record<string, unkn
     const client = getClient()
     const cwd = (options['cwd'] as string | undefined) ?? process.env['USERPROFILE'] ?? 'unknown'
     const history = (options['history'] as HistoryEntry[] | undefined) ?? []
+    const maxBudgetUsd = (options['maxBudgetUsd'] as number | undefined) ?? 0
 
     const systemPrompt =
       `あなたは優秀なソフトウェアエンジニアです。ユーザーのコーディング作業を助けてください。\n` +
@@ -78,6 +79,7 @@ async function runQuery(id: number, prompt: string, options: Record<string, unkn
     )
 
     let accumulated = ''
+    let estimatedCostSoFar = 0
 
     for await (const event of stream) {
       if (abortController.signal.aborted) break
@@ -85,11 +87,32 @@ async function runQuery(id: number, prompt: string, options: Record<string, unkn
         accumulated += event.delta.text
         process.parentPort.postMessage({ type: 'stream', id, agentId, content: accumulated })
       }
+      // A-5: maxBudgetUsd — abort if estimated cost exceeds limit
+      if (maxBudgetUsd > 0 && event.type === 'message_delta' && event.usage) {
+        estimatedCostSoFar = estimateCost(0, event.usage.output_tokens)
+        if (estimatedCostSoFar > maxBudgetUsd) {
+          abortController.abort()
+          process.parentPort.postMessage({ type: 'error', id, agentId, error: `コスト上限 $${maxBudgetUsd} に達したため停止しました（推定コスト: $${estimatedCostSoFar.toFixed(4)}）` })
+          return
+        }
+      }
     }
 
     const final = await stream.finalMessage()
     const costUsd = estimateCost(final.usage.input_tokens, final.usage.output_tokens)
+    // A-5: post-completion budget check
+    if (maxBudgetUsd > 0 && costUsd > maxBudgetUsd) {
+      process.stderr.write(`[sdk-host] budget exceeded: $${costUsd.toFixed(4)} > $${maxBudgetUsd}\n`)
+    }
     process.parentPort.postMessage({ type: 'result', id, agentId, totalCostUsd: costUsd, inputTokens: final.usage.input_tokens, outputTokens: final.usage.output_tokens })
+
+    // A-3: prompt suggestion — extract a follow-up question from the response
+    if (!agentId) {
+      const suggestion = extractPromptSuggestion(accumulated, prompt)
+      if (suggestion) {
+        process.parentPort.postMessage({ type: 'prompt_suggestion', id, suggestion })
+      }
+    }
   } catch (err) {
     if (abortController?.signal.aborted) {
       process.parentPort.postMessage({ type: 'result', id, agentId, totalCostUsd: 0, inputTokens: 0, outputTokens: 0 })
@@ -101,6 +124,27 @@ async function runQuery(id: number, prompt: string, options: Record<string, unkn
   } finally {
     abortController = null
   }
+}
+
+/**
+ * A-3: Extract a follow-up prompt suggestion from the assistant's response.
+ * Looks for question marks or "next step" patterns in the final sentence.
+ */
+function extractPromptSuggestion(response: string, _originalPrompt: string): string | null {
+  // Try to find a question in the last 3 sentences of the response
+  const sentences = response
+    .split(/[。.!！\n]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 10)
+  const lastSentences = sentences.slice(-3)
+  for (const sentence of lastSentences.reverse()) {
+    if (sentence.includes('?') || sentence.includes('？')) {
+      // Truncate to 80 chars for display
+      return sentence.length > 80 ? sentence.slice(0, 80) + '...' : sentence
+    }
+  }
+  // Fallback: generic follow-up
+  return null
 }
 
 function estimateCost(inputTokens: number, outputTokens: number): number {

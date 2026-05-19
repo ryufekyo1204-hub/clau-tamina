@@ -33,19 +33,21 @@ function processClipboardSequences(data: string): string {
   return data.replace(OSC52_RE, '')
 }
 
-// OSC 9999 badge pattern: ESC ] 9999 ; badge=<text> BEL  or  ESC ] 9999 ; badge=<text> ESC \
-const OSC_BADGE_RE = /\x1b\]9999;badge=([^\x07\x1b]*?)(?:\x07|\x1b\\)/g
+// OSC 9999 badge pattern: ESC ] 9999 ; badge=<text>[;color=<hex>] BEL/ST
+const OSC_BADGE_RE = /\x1b\]9999;badge=([^;\x07\x1b]*?)(?:;color=([^;\x07\x1b]*?))?(?:\x07|\x1b\\)/g
 
 /**
  * Parse and strip OSC 9999 badge sequences from a data chunk.
- * Sends badge-update messages to the parent process for any found.
+ * Sends badge-update messages (with optional color) to the parent process for any found.
  * Returns the data with badge sequences removed.
  */
 function processBadgeSequences(data: string): string {
   OSC_BADGE_RE.lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = OSC_BADGE_RE.exec(data)) !== null) {
-    process.parentPort.postMessage({ type: 'badge-update', text: match[1] })
+    const text = match[1]
+    const color = match[2] ?? undefined
+    process.parentPort.postMessage({ type: 'badge-update', text, color })
   }
   return data.replace(OSC_BADGE_RE, '')
 }
@@ -97,6 +99,23 @@ function processCwdSequences(data: string): string {
     }
   }
   return data.replace(OSC7_RE, '')
+}
+
+// OSC 9998 terminal background color: ESC ] 9998 ; bg=<color> BEL/ST
+const OSC_BGSET_RE = /\x1b\]9998;bg=([^;\x07\x1b]+)(?:\x07|\x1b\\)/g
+
+/**
+ * Parse and strip OSC 9998 background-color sequences from a data chunk.
+ * Sends bg-update messages to the parent process for any found.
+ * Returns the data with bg-set sequences removed.
+ */
+function processBgUpdateSequences(data: string): string {
+  OSC_BGSET_RE.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = OSC_BGSET_RE.exec(data)) !== null) {
+    process.parentPort.postMessage({ type: 'bg-update', color: match[1] })
+  }
+  return data.replace(OSC_BGSET_RE, '')
 }
 
 // OSC 9;4 ConEmu progress pattern: ESC ] 9 ; 4 ; <state> ; <value> BEL/ST
@@ -170,6 +189,7 @@ function spawnPty(cwd: string): void {
     cleaned = processBadgeSequences(cleaned)
     cleaned = processNotifySequences(cleaned)
     cleaned = processCwdSequences(cleaned)
+    cleaned = processBgUpdateSequences(cleaned)
     const { output: afterProgress } = processProgressSequences(cleaned)
     cleaned = afterProgress
     const { output, hasBell } = processBellSequences(cleaned)

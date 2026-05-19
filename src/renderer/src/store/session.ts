@@ -41,6 +41,9 @@ interface SessionStore {
   savedSessions: SessionSummary[]
   currentSessionId: string | null
 
+  // A-3: prompt suggestion from SDK
+  promptSuggestion: string
+
   setBypassPermissions: (v: boolean) => void
   setSplitRatio: (v: number) => void
   setCwd: (v: string) => void
@@ -48,6 +51,7 @@ interface SessionStore {
   handleSdkMessage: (msg: SdkMessage) => void
   setPendingTool: (tool: { name: string; input: unknown } | null) => void
   clearMessages: () => void
+  setPromptSuggestion: (s: string) => void
 
   setFontSizeTerminal: (size: number) => void
   setFontFamilyTerminal: (family: string) => void
@@ -82,6 +86,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   focusedAgentId: null,
   savedSessions: [],
   currentSessionId: null,
+  promptSuggestion: '',
 
   setBypassPermissions: (v) => {
     set({ bypassPermissions: v })
@@ -150,11 +155,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         ]
       }))
       currentAssistantId = ''
+    } else if (msg.type === 'prompt_suggestion' && msg.suggestion) {
+      // A-3: store prompt suggestion for display in ChatPane
+      set({ promptSuggestion: msg.suggestion })
     }
   },
 
   setPendingTool: (tool) => set({ pendingTool: tool }),
-  clearMessages: () => set({ messages: [], totalCostUsd: 0, currentSessionId: null }),
+  clearMessages: () => set({ messages: [], totalCostUsd: 0, currentSessionId: null, promptSuggestion: '' }),
+  setPromptSuggestion: (s) => set({ promptSuggestion: s }),
 
   setFontSizeTerminal: (size) => {
     set({ fontSizeTerminal: size })
