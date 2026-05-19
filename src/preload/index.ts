@@ -16,6 +16,8 @@ export interface ApiSettings {
   tabBarOrientation: 'horizontal' | 'vertical'
   cursorStyle: 'block' | 'bar' | 'underline'
   cursorBlink: boolean
+  tabLabels?: Record<string, string>
+  headerBackground?: string
 }
 
 export interface SdkMessage {
@@ -152,6 +154,13 @@ const api = {
     const handler = (_: IpcRendererEvent) => { cb(); return _ }
     ipcRenderer.on('pty:bell', handler)
     return () => ipcRenderer.removeListener('pty:bell', handler)
+  },
+
+  // A-1: OSC 9;4 ConEmu progress bar
+  onPtyProgress: (cb: (state: number, value: number) => void) => {
+    const handler = (_: IpcRendererEvent, state: number, value: number) => cb(state, value)
+    ipcRenderer.on('pty:progress', handler)
+    return () => ipcRenderer.removeListener('pty:progress', handler)
   },
 
   // Terminal scrollback save (A-5)

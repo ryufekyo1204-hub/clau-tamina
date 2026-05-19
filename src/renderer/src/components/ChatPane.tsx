@@ -163,6 +163,19 @@ export function ChatPane(): React.ReactElement {
   const submit = () => {
     const prompt = input.trim()
     if (!prompt || isQuerying) return
+
+    // A-3: `!<prompt>` starts a parallel agent instead of normal query
+    if (prompt.startsWith('!')) {
+      const agentPrompt = prompt.slice(1).trim()
+      if (!agentPrompt) return
+      const agentId = 'agent-' + Date.now()
+      setInput('')
+      window.api.sdkAgentQuery(agentId, agentPrompt, { cwd: currentWorkingDir, bypassPermissions })
+      // Show system message in main chat
+      addUserMessage(`[並列エージェント起動: ${agentPrompt.slice(0, 30)}${agentPrompt.length > 30 ? '...' : ''}]`)
+      return
+    }
+
     // Capture history BEFORE adding user message
     const history = messages.map((m) => ({ role: m.role, content: m.content }))
     addUserMessage(prompt)
@@ -322,7 +335,7 @@ export function ChatPane(): React.ReactElement {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Claude に質問・相談する..."
+            placeholder="Claude に質問・相談する... (! で並列エージェント起動)"
             disabled={isQuerying}
             rows={1}
             style={{

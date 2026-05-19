@@ -33,6 +33,8 @@ interface Settings {
   tabBarOrientation: 'horizontal' | 'vertical'
   cursorStyle: 'block' | 'bar' | 'underline'
   cursorBlink: boolean
+  tabLabels?: Record<string, string>
+  headerBackground?: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -43,7 +45,9 @@ const DEFAULT_SETTINGS: Settings = {
   globalHotkey: 'Ctrl+Alt+T',
   tabBarOrientation: 'horizontal',
   cursorStyle: 'block',
-  cursorBlink: true
+  cursorBlink: true,
+  tabLabels: {},
+  headerBackground: undefined
 }
 
 function loadSettings(): Settings {
@@ -213,6 +217,11 @@ function startPtyHost(): void {
     } else if (m.type === 'bell') {
       // A-2: Bell visual indicator
       mainWindow.webContents.send('pty:bell')
+    } else if (m.type === 'progress-update') {
+      // A-1: OSC 9;4 ConEmu progress bar
+      const state = typeof m.state === 'number' ? m.state : 0
+      const value = typeof m.value === 'number' ? m.value : 0
+      mainWindow.webContents.send('pty:progress', state, value)
     }
   })
 

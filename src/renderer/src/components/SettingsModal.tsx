@@ -27,13 +27,15 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   const [tabBarOrientation, setTabBarOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
   const [cursorStyle, setCursorStyleState] = useState<'block' | 'bar' | 'underline'>('block')
   const [cursorBlink, setCursorBlinkState] = useState(true)
+  // A-5: header background color
+  const [headerBackground, setHeaderBackgroundState] = useState<string>('#000000')
 
   // Sync input when currentWorkingDir is updated externally (e.g. from FileTreePane)
   useEffect(() => {
     setCwdInput(currentWorkingDir)
   }, [currentWorkingDir])
 
-  // Load persisted hotkey, orientation, and cursor settings on modal open
+  // Load persisted hotkey, orientation, cursor, and header background settings on modal open
   useEffect(() => {
     if (open) {
       window.api.getSettings().then((s) => {
@@ -43,6 +45,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
         setTabBarOrientation(s.tabBarOrientation ?? 'horizontal')
         setCursorStyleState(s.cursorStyle ?? 'block')
         setCursorBlinkState(s.cursorBlink ?? true)
+        setHeaderBackgroundState(s.headerBackground ?? '#000000')
       })
     }
   }, [open])
@@ -345,6 +348,69 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
 
           {activeTab === 'general' && (
             <div>
+              {/* A-5: Header background color */}
+              <div
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--accent)',
+                  fontWeight: 700,
+                  letterSpacing: '0.8px',
+                  textTransform: 'uppercase',
+                  marginBottom: '14px',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                外観
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                  ヘッダー背景色
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input
+                    type="color"
+                    value={headerBackground}
+                    onChange={(e) => {
+                      setHeaderBackgroundState(e.target.value)
+                      void window.api.setSetting('headerBackground', e.target.value)
+                    }}
+                    style={{
+                      width: '40px',
+                      height: '28px',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: '6px',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      padding: '2px'
+                    }}
+                  />
+                  <span style={{ fontSize: 'var(--text-sm)', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                    {headerBackground}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setHeaderBackgroundState('#000000')
+                      void window.api.setSetting('headerBackground', undefined)
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      background: 'transparent',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '6px',
+                      color: 'var(--text-muted)',
+                      fontSize: 'var(--text-xs)',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-ui)'
+                    }}
+                  >
+                    リセット
+                  </button>
+                </div>
+                <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                  複数ウィンドウを開くときにプロジェクトごとに色で区別できます
+                </div>
+              </div>
+
               <div
                 style={{
                   fontSize: 'var(--text-xs)',

@@ -99,6 +99,29 @@ function processCwdSequences(data: string): string {
   return data.replace(OSC7_RE, '')
 }
 
+// OSC 9;4 ConEmu progress pattern: ESC ] 9 ; 4 ; <state> ; <value> BEL/ST
+// state: 0=off, 1=normal, 2=error, 3=indeterminate, 4=paused
+// value: 0-100
+const OSC94_RE = /\x1b\]9;4;(\d+);(\d+)(?:\x07|\x1b\\)/g
+
+/**
+ * Parse and strip OSC 9;4 ConEmu progress sequences from a data chunk.
+ * Sends progress-update messages to the parent process for any found.
+ * Returns the data with progress sequences removed.
+ */
+function processProgressSequences(data: string): { output: string; progress: { value: number; state: number } | null } {
+  OSC94_RE.lastIndex = 0
+  let match: RegExpExecArray | null
+  let lastProgress: { value: number; state: number } | null = null
+  while ((match = OSC94_RE.exec(data)) !== null) {
+    const state = Number(match[1])
+    const value = Number(match[2])
+    lastProgress = { state, value }
+    process.parentPort.postMessage({ type: 'progress-update', state, value })
+  }
+  return { output: data.replace(OSC94_RE, ''), progress: lastProgress }
+}
+
 /**
  * Parse and strip standalone bell sequences (\x07) from a data chunk.
  * Must be called after all OSC parsers so OSC terminator \x07 is already consumed.
@@ -147,6 +170,8 @@ function spawnPty(cwd: string): void {
     cleaned = processBadgeSequences(cleaned)
     cleaned = processNotifySequences(cleaned)
     cleaned = processCwdSequences(cleaned)
+    const { output: afterProgress } = processProgressSequences(cleaned)
+    cleaned = afterProgress
     const { output, hasBell } = processBellSequences(cleaned)
     if (hasBell) {
       process.parentPort.postMessage({ type: 'bell' })

@@ -22,6 +22,25 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
     return off
   }, [])
 
+  // A-1: OSC 9;4 progress bar
+  const [progressState, setProgressState] = useState(0)
+  const [progressValue, setProgressValue] = useState(0)
+  useEffect(() => {
+    const off = window.api.onPtyProgress((state, value) => {
+      setProgressState(state)
+      setProgressValue(value)
+    })
+    return off
+  }, [])
+
+  // A-5: header background color
+  const [headerBackground, setHeaderBackground] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    window.api.getSettings().then((s) => {
+      setHeaderBackground(s.headerBackground)
+    }).catch(() => { /* ignore */ })
+  }, [])
+
   // Count agents in each state for header badges (Wave Terminal block badges roll-up)
   const agentList = Object.values(parallelAgents)
   const runningCount = agentList.filter((a) => a.status === 'running').length
@@ -30,8 +49,36 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
   const formatCost = (usd: number): string =>
     usd < 0.001 ? '$0.000' : `$${usd.toFixed(3)}`
 
+  // Progress bar color by state
+  const progressColor =
+    progressState === 2 ? 'var(--status-error)' :
+    progressState === 4 ? 'var(--status-warning)' :
+    'var(--status-running)'
+
   return (
-    <header className="app-header">
+    <header
+      className="app-header"
+      style={{ background: headerBackground ?? undefined, position: 'relative' }}
+    >
+      {/* A-1: OSC 9;4 progress bar — 2px line at header bottom edge */}
+      {progressState > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            height: '2px',
+            width: progressState === 3 ? '100%' : `${Math.min(100, progressValue)}%`,
+            background: progressState === 3
+              ? `linear-gradient(90deg, transparent 0%, ${progressColor} 50%, transparent 100%)`
+              : progressColor,
+            animation: progressState === 3 ? 'progress-indeterminate 1.5s ease-in-out infinite' : undefined,
+            transition: progressState !== 3 ? 'width 0.3s ease' : undefined,
+            pointerEvents: 'none',
+            zIndex: 10
+          }}
+        />
+      )}
       <div className="header-left">
         <span className="header-brand">clau-tamina</span>
         <SessionList />
@@ -142,6 +189,10 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
       </div>
 
       <style>{`
+        @keyframes progress-indeterminate {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
         .app-header {
           height: 36px;
           display: flex;

@@ -20,6 +20,8 @@ export interface ApiSettings {
   tabBarOrientation: 'horizontal' | 'vertical'
   cursorStyle: 'block' | 'bar' | 'underline'
   cursorBlink: boolean
+  tabLabels?: Record<string, string>
+  headerBackground?: string
 }
 
 export interface SdkMessage {
@@ -102,6 +104,9 @@ interface ClauTaminaApi {
 
   // Bell visual indicator (A-2)
   onPtyBell(cb: () => void): () => void
+
+  // A-1: OSC 9;4 ConEmu progress bar
+  onPtyProgress(cb: (state: number, value: number) => void): () => void
 
   // Terminal scrollback save (A-5)
   saveScrollback(text: string): Promise<string | null>
