@@ -123,7 +123,7 @@ export function ProcessViewer(): React.ReactElement {
                     color: 'var(--text-muted)',
                     fontWeight: 600,
                     fontSize: '10px',
-                    letterSpacing: '0.5px',
+                    letterSpacing: 'var(--ls-label)',
                     textTransform: 'uppercase',
                     whiteSpace: 'nowrap'
                   }}

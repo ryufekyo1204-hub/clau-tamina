@@ -18,7 +18,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
           padding: isUser ? '8px 12px' : '0',
           background: isUser ? 'var(--app-bg-elevated)' : 'transparent',
           border: isUser ? '1px solid var(--border-subtle)' : 'none',
-          borderRadius: isUser ? '12px 12px 2px 12px' : '0',
+          borderRadius: isUser ? 'var(--radius-md)' : '0',
           color: 'var(--text-primary)',
           fontSize: 'var(--text-md)',
           lineHeight: '1.65',
@@ -53,7 +53,7 @@ function ToolApprovalDialog(): React.ReactElement | null {
         padding: '12px',
         background: 'var(--app-bg-elevated)',
         border: '1px solid var(--border-accent)',
-        borderRadius: '8px',
+        borderRadius: 'var(--radius-lg)',
         fontSize: 'var(--text-sm)'
       }}
     >
@@ -227,7 +227,7 @@ export function ChatPane(): React.ReactElement {
               color: 'var(--text-muted)',
               fontWeight: 600,
               textTransform: 'uppercase',
-              letterSpacing: '0.5px'
+              letterSpacing: 'var(--ls-label)'
             }}
           >
             Claude AI
@@ -323,7 +323,7 @@ export function ChatPane(): React.ReactElement {
               padding: '4px 10px',
               background: 'var(--app-bg-elevated)',
               border: '1px solid var(--border-accent)',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-sm)',
               color: 'var(--text-secondary)',
               fontSize: 'var(--text-xs)',
               cursor: 'pointer',
@@ -358,7 +358,7 @@ export function ChatPane(): React.ReactElement {
             padding: '8px 10px',
             background: 'var(--app-bg-surface)',
             border: '1px solid var(--border-default)',
-            borderRadius: '10px',
+            borderRadius: 'var(--radius-lg)',
             transition: 'border-color 0.15s ease'
           }}
           onFocusCapture={(e) => {

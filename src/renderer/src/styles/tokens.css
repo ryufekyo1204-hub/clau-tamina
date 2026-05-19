@@ -67,4 +67,15 @@
   --text-base: 13px;
   --text-md:   14px;
   --text-lg:   16px;
+
+  /* === Cyber-Minimal radius === */
+  --radius-sm: 3px;   /* buttons */
+  --radius-md: 4px;   /* cards */
+  --radius-lg: 6px;   /* modals / dialogs */
+
+  /* === Cyber-Minimal typography === */
+  --ls-label: 0.06em;
+
+  /* === Cyber-Minimal secondary accent (cyan) === */
+  --cyber-glow-cyan: 0 0 14px rgba(83, 180, 234, 0.25);
 }

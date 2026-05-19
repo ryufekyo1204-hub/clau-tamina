@@ -275,7 +275,7 @@ export function SessionList({ orientation = 'horizontal' }: SessionListProps): R
             width: '260px',
             background: 'var(--app-bg-elevated)',
             border: '1px solid var(--border-default)',
-            borderRadius: '8px',
+            borderRadius: 'var(--radius-md)',
             boxShadow: 'var(--shadow-md)',
             zIndex: 1000,
             overflow: 'hidden',

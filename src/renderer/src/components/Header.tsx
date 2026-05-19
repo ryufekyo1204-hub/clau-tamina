@@ -237,7 +237,7 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
           font-size: var(--text-sm);
           font-weight: 700;
           color: var(--accent);
-          letter-spacing: 0.5px;
+          letter-spacing: var(--ls-label);
         }
 
         .permission-toggle {
@@ -245,7 +245,7 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
           align-items: center;
           gap: 6px;
           padding: 3px 10px;
-          border-radius: 12px;
+          border-radius: var(--radius-lg);
           font-size: var(--text-sm);
           font-weight: 600;
           transition: background 0.15s ease, border-color 0.15s ease;
