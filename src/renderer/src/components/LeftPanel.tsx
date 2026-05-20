@@ -76,6 +76,18 @@ export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: Le
     setEditingValue(tabLabels[tab] ?? TAB_LABEL[tab])
   }, [tabLabels])
 
+  // A-5 (Phase 12): F2 key triggers rename on active tab (Wave Terminal v0.14.5)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2' && editingTabId === null) {
+        e.preventDefault()
+        startEditing(activeTab)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [activeTab, editingTabId, startEditing])
+
   const commitEdit = useCallback(() => {
     if (editingTabId === null) return
     const trimmed = editingValue.trim()

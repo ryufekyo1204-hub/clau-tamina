@@ -1,8 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useSessionStore, type ChatMessage } from '../store/session'
 
+const COLLAPSE_THRESHOLD = 300
+
 function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
   const isUser = msg.role === 'user'
+  const isLong = !isUser && msg.content.length > COLLAPSE_THRESHOLD
+  const [collapsed, setCollapsed] = React.useState(isLong)
+  const lineCount = msg.content.split('\n').length
+
+  const displayContent = collapsed
+    ? msg.content.split('\n').slice(0, 3).join('\n')
+    : msg.content
+
   return (
     <div
       style={{
@@ -22,11 +32,42 @@ function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
           color: 'var(--text-primary)',
           fontSize: 'var(--text-md)',
           lineHeight: '1.65',
-          whiteSpace: 'pre-wrap',
           wordBreak: 'break-word'
         }}
       >
-        {msg.content}
+        <div
+          style={{
+            whiteSpace: 'pre-wrap',
+            position: 'relative',
+            ...(collapsed && isLong
+              ? { WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)', maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)' }
+              : {})
+          }}
+        >
+          {displayContent}
+        </div>
+        {isLong && (
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            style={{
+              display: 'block',
+              marginTop: collapsed ? '2px' : '6px',
+              padding: '2px 8px',
+              background: 'transparent',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--accent)',
+              fontSize: 'var(--text-xs)',
+              fontFamily: 'var(--font-mono)',
+              cursor: 'pointer',
+              letterSpacing: 'var(--ls-label)',
+              textTransform: 'uppercase',
+              transition: 'border-color 0.15s, color 0.15s'
+            }}
+          >
+            {collapsed ? `…続き (${lineCount}行) ▾` : '▴ 折りたたむ'}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -123,7 +164,9 @@ export function ChatPane(): React.ReactElement {
     spawnParallelAgent,
     handleAgentSdkMessage,
     promptSuggestion,
-    setPromptSuggestion
+    setPromptSuggestion,
+    lastCheckpointUuid,
+    rewindLastExchange
   } = useSessionStore()
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -307,6 +350,35 @@ export function ChatPane(): React.ReactElement {
         <ToolApprovalDialog />
         <div ref={messagesEndRef} />
       </div>
+
+      {/* A-3 (Phase 12): Conversation rewind button */}
+      {lastCheckpointUuid && !isQuerying && messages.length >= 2 && (
+        <div style={{ padding: '0 8px 4px 8px', flexShrink: 0 }}>
+          <button
+            onClick={rewindLastExchange}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '4px 10px',
+              background: 'transparent',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+              fontSize: 'var(--text-xs)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: 'var(--ls-label)',
+              textTransform: 'uppercase',
+              transition: 'border-color 0.15s, color 0.15s'
+            }}
+            title="最後のユーザー発言と応答を会話から取り除く"
+          >
+            <span style={{ color: 'var(--accent)' }}>↩</span>
+            最後の応答を取り消す
+          </button>
+        </div>
+      )}
 
       {/* A-3: Prompt suggestion chip */}
       {promptSuggestion && !isQuerying && (

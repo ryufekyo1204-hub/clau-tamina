@@ -147,6 +147,7 @@ function createWindow(): BrowserWindow {
     minHeight: 500,
     backgroundColor: '#000000',
     titleBarStyle: 'hidden',
+    roundedCorners: true,
     titleBarOverlay: {
       color: '#000000',
       symbolColor: '#a09b95',

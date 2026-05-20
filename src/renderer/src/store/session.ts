@@ -44,6 +44,9 @@ interface SessionStore {
   // A-3: prompt suggestion from SDK
   promptSuggestion: string
 
+  // A-3 (Phase 12): last checkpoint UUID for conversation rewind
+  lastCheckpointUuid: string | null
+
   setBypassPermissions: (v: boolean) => void
   setSplitRatio: (v: number) => void
   setCwd: (v: string) => void
@@ -52,6 +55,7 @@ interface SessionStore {
   setPendingTool: (tool: { name: string; input: unknown } | null) => void
   clearMessages: () => void
   setPromptSuggestion: (s: string) => void
+  rewindLastExchange: () => void
 
   setFontSizeTerminal: (size: number) => void
   setFontFamilyTerminal: (family: string) => void
@@ -87,6 +91,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   savedSessions: [],
   currentSessionId: null,
   promptSuggestion: '',
+  lastCheckpointUuid: null,
 
   setBypassPermissions: (v) => {
     set({ bypassPermissions: v })
@@ -138,6 +143,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         totalCostUsd: get().totalCostUsd + (msg.totalCostUsd ?? 0),
         totalInputTokens: get().totalInputTokens + (msg.inputTokens ?? 0),
         totalOutputTokens: get().totalOutputTokens + (msg.outputTokens ?? 0),
+        lastCheckpointUuid: currentAssistantId || null,
       })
       currentAssistantId = ''
     } else if (msg.type === 'error') {
@@ -162,8 +168,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   setPendingTool: (tool) => set({ pendingTool: tool }),
-  clearMessages: () => set({ messages: [], totalCostUsd: 0, currentSessionId: null, promptSuggestion: '' }),
+  clearMessages: () => set({ messages: [], totalCostUsd: 0, currentSessionId: null, promptSuggestion: '', lastCheckpointUuid: null }),
   setPromptSuggestion: (s) => set({ promptSuggestion: s }),
+
+  rewindLastExchange: () => {
+    const { messages } = get()
+    // Remove the last assistant message and the user message before it
+    let trimIdx = messages.length - 1
+    while (trimIdx >= 0 && messages[trimIdx].role === 'assistant') trimIdx--
+    while (trimIdx >= 0 && messages[trimIdx].role === 'user') trimIdx--
+    set({ messages: messages.slice(0, trimIdx + 1), lastCheckpointUuid: null, isQuerying: false })
+  },
 
   setFontSizeTerminal: (size) => {
     set({ fontSizeTerminal: size })

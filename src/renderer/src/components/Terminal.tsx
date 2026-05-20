@@ -115,20 +115,6 @@ export function TerminalPane(): React.ReactElement {
       termRef.current = term
       fitRef.current = fitAddon
 
-      // Drag-and-drop file path support (Phase 5 A-3)
-      const termElement = containerRef.current
-      const handleDragOver = (e: DragEvent) => {
-        e.preventDefault()
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
-      }
-      const handleDrop = (e: DragEvent) => {
-        e.preventDefault()
-        const path = e.dataTransfer?.getData('text/plain')
-        if (path) window.api.ptyInput(path)
-      }
-      termElement.addEventListener('dragover', handleDragOver)
-      termElement.addEventListener('drop', handleDrop)
-
       // Send keystrokes to PTY
       const onData = term.onData((data) => window.api.ptyInput(data))
 
@@ -154,10 +140,6 @@ export function TerminalPane(): React.ReactElement {
         offPtyExit,
         offFocusTerm,
         () => ro.disconnect(),
-        () => {
-          termElement.removeEventListener('dragover', handleDragOver)
-          termElement.removeEventListener('drop', handleDrop)
-        },
         () => term.dispose()
       ]
     }
@@ -204,6 +186,9 @@ export function TerminalPane(): React.ReactElement {
     })
     return off
   }, [])
+
+  // A-1 (Phase 12): drop target visual feedback state
+  const [isDragOver, setIsDragOver] = useState(false)
 
   // A-3 (Phase 10): Block Magnify — Ctrl+Shift+M shortcut + Escape to dismiss
   useEffect(() => {
@@ -397,12 +382,36 @@ export function TerminalPane(): React.ReactElement {
       )}
       <div
         ref={containerRef}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+        onDragLeave={(e) => {
+          if (!containerRef.current?.contains(e.relatedTarget as Node)) setIsDragOver(false)
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          setIsDragOver(false)
+          // A-1 (Phase 12): handle OS file drops — quote paths with spaces
+          const files = Array.from(e.dataTransfer?.files ?? [])
+          if (files.length > 0) {
+            const paths = files
+              .map((f) => {
+                const p = (f as unknown as { path: string }).path
+                return p.includes(' ') ? `"${p}"` : p
+              })
+              .join(' ')
+            if (paths) { window.api.ptyInput(paths); return }
+          }
+          // Fallback: text/plain drag
+          const text = e.dataTransfer?.getData('text/plain')
+          if (text) window.api.ptyInput(text)
+        }}
         style={{
           flex: 1,
           overflow: 'hidden',
           background: bgColor ?? '#000000',
           padding: '4px',
-          transition: 'background 0.3s ease'
+          transition: 'background 0.3s ease, outline-color 0.15s ease',
+          outline: isDragOver ? '2px solid var(--border-accent)' : '2px solid transparent',
+          outlineOffset: '-2px'
         }}
       />
     </div>
