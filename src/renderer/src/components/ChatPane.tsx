@@ -1,7 +1,157 @@
 import React, { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useSessionStore, type ChatMessage } from '../store/session'
 
 const COLLAPSE_THRESHOLD = 300
+
+function CopyButton({ text }: { text: string }): React.ReactElement {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }).catch(() => undefined)
+  }
+  return (
+    <button
+      onClick={copy}
+      style={{
+        position: 'absolute',
+        top: '6px',
+        right: '6px',
+        padding: '2px 7px',
+        background: copied ? 'var(--accent-subtle)' : 'var(--app-bg)',
+        border: '1px solid ' + (copied ? 'var(--border-accent)' : 'var(--border-subtle)'),
+        borderRadius: 'var(--radius-sm)',
+        color: copied ? 'var(--accent)' : 'var(--text-muted)',
+        fontSize: 'var(--text-xs)',
+        fontFamily: 'var(--font-mono)',
+        cursor: 'pointer',
+        letterSpacing: 'var(--ls-label)',
+        textTransform: 'uppercase',
+        transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+        zIndex: 1
+      }}
+    >
+      {copied ? 'COPIED' : 'COPY'}
+    </button>
+  )
+}
+
+const mdComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
+  code({ className, children, ...props }) {
+    const isBlock = className?.startsWith('language-') || String(children).includes('\n')
+    const text = String(children).replace(/\n$/, '')
+    if (isBlock) {
+      return (
+        <div style={{ position: 'relative', marginBottom: '8px' }}>
+          <CopyButton text={text} />
+          <pre
+            style={{
+              padding: '10px 12px',
+              paddingRight: '52px',
+              background: 'var(--app-bg-elevated)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              overflowX: 'auto',
+              fontSize: 'var(--text-sm)',
+              lineHeight: '1.55',
+              color: 'var(--term-bright-green)',
+              fontFamily: 'var(--font-mono)',
+              whiteSpace: 'pre'
+            }}
+          >
+            <code {...props} className={className}>{text}</code>
+          </pre>
+        </div>
+      )
+    }
+    return (
+      <code
+        {...props}
+        style={{
+          padding: '1px 5px',
+          background: 'var(--app-bg-elevated)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: '0.92em',
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--status-waiting)'
+        }}
+      >
+        {children}
+      </code>
+    )
+  },
+  pre({ children }) {
+    return <>{children}</>
+  },
+  table({ children }) {
+    return (
+      <div style={{ overflowX: 'auto', marginBottom: '8px' }}>
+        <table style={{ borderCollapse: 'collapse', fontSize: 'var(--text-sm)', width: '100%' }}>
+          {children}
+        </table>
+      </div>
+    )
+  },
+  th({ children }) {
+    return (
+      <th style={{ padding: '5px 10px', borderBottom: '1px solid var(--border-default)', color: 'var(--accent)', fontFamily: 'var(--font-mono)', textAlign: 'left', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 'var(--ls-label)', fontSize: 'var(--text-xs)' }}>
+        {children}
+      </th>
+    )
+  },
+  td({ children }) {
+    return (
+      <td style={{ padding: '5px 10px', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+        {children}
+      </td>
+    )
+  },
+  blockquote({ children }) {
+    return (
+      <blockquote style={{ margin: '6px 0', paddingLeft: '10px', borderLeft: '2px solid var(--border-accent)', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+        {children}
+      </blockquote>
+    )
+  },
+  a({ href, children }) {
+    return (
+      <span
+        style={{ color: 'var(--status-waiting)', textDecoration: 'underline', cursor: 'pointer' }}
+        title={href}
+      >
+        {children}
+      </span>
+    )
+  },
+  p({ children }) {
+    return <p style={{ marginBottom: '6px', lineHeight: '1.65' }}>{children}</p>
+  },
+  ul({ children }) {
+    return <ul style={{ paddingLeft: '16px', marginBottom: '6px' }}>{children}</ul>
+  },
+  ol({ children }) {
+    return <ol style={{ paddingLeft: '16px', marginBottom: '6px' }}>{children}</ol>
+  },
+  li({ children }) {
+    return <li style={{ marginBottom: '3px' }}>{children}</li>
+  },
+  h1({ children }) {
+    return <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{children}</h1>
+  },
+  h2({ children }) {
+    return <h2 style={{ fontSize: 'var(--text-md)', fontWeight: 700, marginBottom: '6px', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{children}</h2>
+  },
+  h3({ children }) {
+    return <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 700, marginBottom: '4px', color: 'var(--accent)' }}>{children}</h3>
+  },
+  hr() {
+    return <hr style={{ border: 'none', borderTop: '1px solid var(--border-subtle)', margin: '10px 0' }} />
+  }
+}
 
 function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
   const isUser = msg.role === 'user'
@@ -37,14 +187,19 @@ function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
       >
         <div
           style={{
-            whiteSpace: 'pre-wrap',
             position: 'relative',
             ...(collapsed && isLong
               ? { WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)', maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)' }
               : {})
           }}
         >
-          {displayContent}
+          {isUser ? (
+            <span style={{ whiteSpace: 'pre-wrap' }}>{displayContent}</span>
+          ) : (
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+              {displayContent}
+            </ReactMarkdown>
+          )}
         </div>
         {isLong && (
           <button
@@ -169,6 +324,7 @@ export function ChatPane(): React.ReactElement {
     rewindLastExchange
   } = useSessionStore()
   const [input, setInput] = useState('')
+  const [systemPrompt, setSystemPromptLocal] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -183,6 +339,13 @@ export function ChatPane(): React.ReactElement {
       offAgent()
     }
   }, [handleSdkMessage, setPendingTool, handleAgentSdkMessage])
+
+  // Load system prompt from settings
+  useEffect(() => {
+    window.api.getSettings().then((s) => {
+      setSystemPromptLocal(s.systemPrompt ?? '')
+    }).catch(() => undefined)
+  }, [])
 
   // A-1: Vim pane navigation — focus chat input on Ctrl+Shift+L
   useEffect(() => {
@@ -230,7 +393,8 @@ export function ChatPane(): React.ReactElement {
     window.api.sdkQuery(prompt, {
       cwd: currentWorkingDir,
       bypassPermissions,
-      history
+      history,
+      ...(systemPrompt.trim() ? { systemPrompt: systemPrompt.trim() } : {})
     })
   }
 
@@ -288,6 +452,39 @@ export function ChatPane(): React.ReactElement {
             />
           )}
         </div>
+        <button
+          onClick={() => {
+            if (messages.length === 0) return
+            const lines: string[] = [
+              `# clau-tamina チャット履歴`,
+              `エクスポート日時: ${new Date().toLocaleString('ja-JP')}`,
+              ''
+            ]
+            for (const m of messages) {
+              lines.push(m.role === 'user' ? '## ユーザー' : '## Claude')
+              lines.push(m.content)
+              lines.push('')
+            }
+            void window.api.exportChat(lines.join('\n'))
+          }}
+          disabled={messages.length === 0}
+          title="会話を Markdown ファイルにエクスポート"
+          style={{
+            fontSize: 'var(--text-xs)',
+            color: messages.length > 0 ? 'var(--text-muted)' : 'var(--text-muted)',
+            background: 'transparent',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '2px 7px',
+            cursor: messages.length > 0 ? 'pointer' : 'default',
+            fontFamily: 'var(--font-mono)',
+            opacity: messages.length > 0 ? 1 : 0.4,
+            transition: 'color 0.15s, border-color 0.15s',
+            marginRight: '4px'
+          }}
+        >
+          MD
+        </button>
         <button
           onClick={() => {
             const prompt = input.trim()

@@ -57,11 +57,15 @@ async function runQuery(id: number, prompt: string, options: Record<string, unkn
     const history = (options['history'] as HistoryEntry[] | undefined) ?? []
     const maxBudgetUsd = (options['maxBudgetUsd'] as number | undefined) ?? 0
 
-    const systemPrompt =
+    const defaultSystemPrompt =
       `あなたは優秀なソフトウェアエンジニアです。ユーザーのコーディング作業を助けてください。\n` +
       `現在の作業ディレクトリ: ${cwd}\n` +
       `エラーの解析、設計の相談、コードレビューなど幅広く対応してください。\n` +
       `回答は日本語か英語、文脈に合わせて使い分けてください。`
+    const customSystemPrompt = (options['systemPrompt'] as string | undefined) ?? ''
+    const systemPrompt = customSystemPrompt.trim()
+      ? `${customSystemPrompt.trim()}\n\n現在の作業ディレクトリ: ${cwd}`
+      : defaultSystemPrompt
 
     const messages: Anthropic.MessageParam[] = [
       ...history.map((m) => ({ role: m.role, content: m.content })),

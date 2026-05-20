@@ -20,6 +20,7 @@ export interface ApiSettings {
   headerBackground?: string
   maxBudgetUsd?: number
   cwdColorMap?: Record<string, string>
+  systemPrompt?: string
 }
 
 export interface SdkMessage {
@@ -201,7 +202,11 @@ const api = {
   // A-1 (Phase 10): Claude Code hooks
   checkClaudeHooks: (): Promise<boolean> => ipcRenderer.invoke('claude:check-hooks'),
   installClaudeHooks: (): Promise<boolean> => ipcRenderer.invoke('claude:install-hooks'),
-  removeClaudeHooks: (): Promise<boolean> => ipcRenderer.invoke('claude:remove-hooks')
+  removeClaudeHooks: (): Promise<boolean> => ipcRenderer.invoke('claude:remove-hooks'),
+
+  // A-4 (Phase 13): Chat export to Markdown
+  exportChat: (content: string): Promise<string | null> =>
+    ipcRenderer.invoke('chat:export', content)
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -38,6 +38,7 @@ interface Settings {
   headerBackground?: string
   maxBudgetUsd?: number
   cwdColorMap?: Record<string, string>
+  systemPrompt?: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -461,6 +462,22 @@ ipcMain.handle('process:list', async () => {
     )
   } catch {
     return []
+  }
+})
+
+// IPC handler — Chat export to Markdown (A-4)
+ipcMain.handle('chat:export', async (_, content: string) => {
+  try {
+    const { filePath, canceled } = await dialog.showSaveDialog({
+      title: 'チャット履歴のエクスポート',
+      defaultPath: `clau-tamina-chat-${new Date().toISOString().slice(0, 10)}.md`,
+      filters: [{ name: 'Markdown', extensions: ['md'] }]
+    })
+    if (canceled || !filePath) return null
+    writeFileSync(filePath, content, 'utf-8')
+    return filePath
+  } catch {
+    return null
   }
 })
 

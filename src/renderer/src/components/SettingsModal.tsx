@@ -6,7 +6,7 @@ interface SettingsModalProps {
   onClose: () => void
 }
 
-type SettingsTab = 'terminal' | 'workspace' | 'general'
+type SettingsTab = 'terminal' | 'workspace' | 'general' | 'ai'
 
 export function SettingsModal({ open, onClose }: SettingsModalProps): React.ReactElement | null {
   const {
@@ -33,6 +33,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   const [maxBudgetUsd, setMaxBudgetUsdState] = useState<number>(0)
   // A-4: CWD color map
   const [cwdColorMap, setCwdColorMapState] = useState<Record<string, string>>({})
+  // A-5 (Phase 13): custom system prompt
+  const [systemPrompt, setSystemPromptState] = useState('')
   // A-1 (Phase 10): Claude Code hooks
   const [hooksInstalled, setHooksInstalled] = useState<boolean | null>(null)
   const [hooksLoading, setHooksLoading] = useState(false)
@@ -55,6 +57,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
         setHeaderBackgroundState(s.headerBackground ?? '#000000')
         setMaxBudgetUsdState(s.maxBudgetUsd ?? 0)
         setCwdColorMapState(s.cwdColorMap ?? {})
+        setSystemPromptState(s.systemPrompt ?? '')
       })
       window.api.checkClaudeHooks().then(setHooksInstalled).catch(() => setHooksInstalled(false))
     }
@@ -159,7 +162,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
             background: 'var(--app-bg-surface)'
           }}
         >
-          {(['terminal', 'workspace', 'general'] as SettingsTab[]).map((tab) => (
+          {(['terminal', 'workspace', 'general', 'ai'] as SettingsTab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -176,7 +179,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                 transition: 'color 0.15s, border-color 0.15s'
               }}
             >
-              {tab === 'terminal' ? 'ターミナル' : tab === 'workspace' ? 'ワークスペース' : '全般'}
+              {tab === 'terminal' ? 'ターミナル' : tab === 'workspace' ? 'ワークスペース' : tab === 'ai' ? 'AI' : '全般'}
             </button>
           ))}
         </div>
@@ -740,6 +743,71 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                   他のアプリ使用中でもこのキーでウィンドウを瞬時に呼び出せます。<br />
                   形式: Ctrl+Alt+T / Ctrl+Shift+Space / F12 など
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'ai' && (
+            <div>
+              <div
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--accent)',
+                  fontWeight: 700,
+                  letterSpacing: 'var(--ls-label)',
+                  textTransform: 'uppercase',
+                  marginBottom: '14px',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                AI 設定
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  カスタムシステムプロンプト
+                </div>
+                <textarea
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPromptState(e.target.value)}
+                  onBlur={() => void window.api.setSetting('systemPrompt', systemPrompt)}
+                  placeholder={`（空白 = デフォルト）\n例: あなたは Rust エキスパートです。常に安全なコードを書いてください。`}
+                  rows={7}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    background: 'var(--app-bg)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-primary)',
+                    fontSize: 'var(--text-sm)',
+                    fontFamily: 'var(--font-mono)',
+                    resize: 'vertical',
+                    lineHeight: '1.55',
+                    outline: 'none',
+                    transition: 'border-color 0.15s'
+                  }}
+                  onFocus={(e) => { e.target.style.borderColor = 'var(--border-accent)' }}
+                />
+                <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                  空白の場合はデフォルトのシステムプロンプトが使われます。<br />
+                  入力欄を離れると自動保存されます。次のクエリから適用されます。
+                </div>
+              </div>
+              <div
+                style={{
+                  padding: '10px 12px',
+                  background: 'var(--app-bg-surface)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-muted)',
+                  lineHeight: '1.6'
+                }}
+              >
+                <span style={{ color: 'var(--status-waiting)', fontFamily: 'var(--font-mono)' }}>
+                  DEFAULT:
+                </span>{' '}
+                あなたは優秀なソフトウェアエンジニアです。ユーザーのコーディング作業を助けてください。エラーの解析、設計の相談、コードレビューなど幅広く対応してください。
               </div>
             </div>
           )}

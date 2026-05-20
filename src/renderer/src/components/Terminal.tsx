@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
+import { SearchAddon } from '@xterm/addon-search'
 import '@xterm/xterm/css/xterm.css'
 import { useSessionStore } from '../store/session'
 
@@ -9,6 +10,7 @@ export function TerminalPane(): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
+  const searchAddonRef = useRef<SearchAddon | null>(null)
   const cleanupRef = useRef<Array<() => void>>([])
   const [savingScrollback, setSavingScrollback] = useState(false)
   // A-2: OSC 9998 terminal background color
@@ -18,6 +20,11 @@ export function TerminalPane(): React.ReactElement {
   // A-5 (Phase 10): error context (Active AI style)
   const [errorContext, setErrorContext] = useState<string | null>(null)
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // A-3 (Phase 13): terminal search
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResultCount, setSearchResultCount] = useState<number | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const fontSizeTerminal = useSessionStore((s) => s.fontSizeTerminal)
   const fontFamilyTerminal = useSessionStore((s) => s.fontFamilyTerminal)
@@ -98,6 +105,11 @@ export function TerminalPane(): React.ReactElement {
 
       const fitAddon = new FitAddon()
       term.loadAddon(fitAddon)
+
+      // A-3 (Phase 13): Search addon
+      const searchAddon = new SearchAddon()
+      term.loadAddon(searchAddon)
+      searchAddonRef.current = searchAddon
 
       // WebGL addon — fallback to canvas on unsupported environments
       try {
@@ -212,6 +224,49 @@ export function TerminalPane(): React.ReactElement {
     return () => clearTimeout(id)
   }, [magnified])
 
+  // A-3 (Phase 13): Terminal search — Ctrl+Shift+F
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+        e.preventDefault()
+        setSearchOpen((o) => !o)
+      } else if (e.key === 'Escape' && searchOpen) {
+        setSearchOpen(false)
+        setSearchQuery('')
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [searchOpen])
+
+  // Focus search input when opened
+  useEffect(() => {
+    if (searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 30)
+    } else {
+      setSearchResultCount(null)
+      // Return focus to terminal
+      termRef.current?.focus()
+    }
+  }, [searchOpen])
+
+  const runSearch = (query: string, direction: 'next' | 'prev' = 'next') => {
+    const addon = searchAddonRef.current
+    if (!addon || !query.trim()) { setSearchResultCount(null); return }
+    const decorations = {
+      matchBackground: 'rgba(217,119,87,0.35)',
+      matchBorder: 'rgba(217,119,87,0.6)',
+      matchOverviewRuler: 'rgba(217,119,87,0.5)',
+      activeMatchBackground: 'rgba(217,119,87,0.75)',
+      activeMatchBorder: '#d97757',
+      activeMatchColorOverviewRuler: '#d97757'
+    }
+    const found = direction === 'next'
+      ? addon.findNext(query, { decorations })
+      : addon.findPrevious(query, { decorations })
+    setSearchResultCount(found ? 1 : 0)
+  }
+
   // A-5 (Phase 10): subscribe to error context from PTY host
   useEffect(() => {
     const off = window.api.onPtyErrorContext((output) => {
@@ -269,6 +324,24 @@ export function TerminalPane(): React.ReactElement {
           gap: '4px'
         }}
       >
+        {/* A-3 (Phase 13): Search toggle button */}
+        <button
+          onClick={() => setSearchOpen((o) => !o)}
+          title="ターミナル検索 (Ctrl+Shift+F)"
+          style={{
+            padding: '1px 6px',
+            background: searchOpen ? 'var(--accent-subtle)' : 'transparent',
+            border: searchOpen ? '1px solid var(--border-accent)' : '1px solid var(--border-subtle)',
+            borderRadius: '4px',
+            color: searchOpen ? 'var(--accent)' : 'var(--text-secondary)',
+            fontSize: 'var(--text-xs)',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-mono)',
+            transition: 'color 0.15s, border-color 0.15s, background 0.15s'
+          }}
+        >
+          🔍
+        </button>
         {/* A-5: Section mark button */}
         <button
           onClick={() => {
@@ -378,6 +451,72 @@ export function TerminalPane(): React.ReactElement {
           >
             ✕
           </button>
+        </div>
+      )}
+      {/* A-3 (Phase 13): Terminal search overlay */}
+      {searchOpen && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 8px',
+            background: 'var(--app-bg-surface)',
+            borderBottom: '1px solid var(--border-accent)',
+            flexShrink: 0,
+            animation: 'error-ctx-fade 0.1s ease-out'
+          }}
+        >
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              runSearch(e.target.value)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); runSearch(searchQuery, e.shiftKey ? 'prev' : 'next') }
+              else if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery('') }
+            }}
+            placeholder="ターミナル内を検索..."
+            style={{
+              flex: 1,
+              padding: '3px 7px',
+              background: 'var(--app-bg)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-primary)',
+              fontSize: 'var(--text-sm)',
+              fontFamily: 'var(--font-mono)',
+              outline: 'none',
+              maxWidth: '240px'
+            }}
+            onFocus={(e) => { e.target.style.borderColor = 'var(--border-accent)' }}
+            onBlur={(e) => { e.target.style.borderColor = 'var(--border-default)' }}
+          />
+          {searchResultCount !== null && (
+            <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: searchResultCount > 0 ? 'var(--accent)' : 'var(--status-error)' }}>
+              {searchResultCount > 0 ? '✓' : '—'}
+            </span>
+          )}
+          <button
+            onClick={() => runSearch(searchQuery, 'prev')}
+            disabled={!searchQuery.trim()}
+            title="前へ (Shift+Enter)"
+            style={{ padding: '2px 7px', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', fontSize: 'var(--text-xs)', cursor: searchQuery.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-mono)', opacity: searchQuery.trim() ? 1 : 0.4 }}
+          >↑</button>
+          <button
+            onClick={() => runSearch(searchQuery, 'next')}
+            disabled={!searchQuery.trim()}
+            title="次へ (Enter)"
+            style={{ padding: '2px 7px', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', fontSize: 'var(--text-xs)', cursor: searchQuery.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-mono)', opacity: searchQuery.trim() ? 1 : 0.4 }}
+          >↓</button>
+          <button
+            onClick={() => { setSearchOpen(false); setSearchQuery('') }}
+            title="閉じる (Esc)"
+            style={{ padding: '2px 7px', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}
+          >✕</button>
         </div>
       )}
       <div

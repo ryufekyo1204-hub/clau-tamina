@@ -26,6 +26,7 @@ export interface ApiSettings {
   fontFamilyTerminal?: string
   maxBudgetUsd?: number
   cwdColorMap?: Record<string, string>
+  systemPrompt?: string
 }
 
 export interface SdkMessage {
@@ -128,6 +129,9 @@ interface ClauTaminaApi {
   checkClaudeHooks(): Promise<boolean>
   installClaudeHooks(): Promise<boolean>
   removeClaudeHooks(): Promise<boolean>
+
+  // A-4 (Phase 13): Chat export to Markdown
+  exportChat(content: string): Promise<string | null>
 }
 
 declare global {
