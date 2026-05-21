@@ -32,6 +32,9 @@ export function TerminalPane(): React.ReactElement {
   const bypassPermissions = useSessionStore((s) => s.bypassPermissions)
   const isQuerying = useSessionStore((s) => s.isQuerying)
   const addUserMessage = useSessionStore((s) => s.addUserMessage)
+  // A-1: split ratio preset buttons (Wave Terminal v0.14.5 showsplitbuttons)
+  const splitRatio = useSessionStore((s) => s.splitRatio)
+  const setSplitRatio = useSessionStore((s) => s.setSplitRatio)
 
   // A-5: save scrollback to file via main process dialog
   const handleSaveScrollback = useCallback(async () => {
@@ -324,6 +327,32 @@ export function TerminalPane(): React.ReactElement {
           gap: '4px'
         }}
       >
+        {/* A-1: Split ratio preset buttons (Wave Terminal v0.14.5 showsplitbuttons) */}
+        {([0.3, 0.5, 0.7] as const).map((ratio) => {
+          const label = ratio === 0.3 ? '3:7' : ratio === 0.5 ? '5:5' : '7:3'
+          const isActive = Math.abs(splitRatio - ratio) < 0.05
+          return (
+            <button
+              key={ratio}
+              onClick={() => setSplitRatio(ratio)}
+              title={`分割比率 ${label}`}
+              style={{
+                padding: '1px 6px',
+                background: isActive ? 'var(--accent-subtle)' : 'transparent',
+                border: isActive ? '1px solid var(--border-accent)' : '1px solid var(--border-subtle)',
+                borderRadius: '3px',
+                color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                fontSize: '9px',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                letterSpacing: '0.03em',
+                transition: 'color 0.15s, border-color 0.15s, background 0.15s'
+              }}
+            >
+              {label}
+            </button>
+          )
+        })}
         {/* A-3 (Phase 13): Search toggle button */}
         <button
           onClick={() => setSearchOpen((o) => !o)}

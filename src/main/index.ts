@@ -229,6 +229,10 @@ function startPtyHost(): void {
       mainWindow.webContents.send('pty:bell')
       // A-1: also send tab-badge for bell
       mainWindow.webContents.send('pty:tab-bell')
+      // A-5 (Phase 14): OS notification when window is not focused (Wave Terminal v0.14.2)
+      if (!mainWindow.isFocused() && Notification.isSupported()) {
+        new Notification({ title: 'clau-tamina', body: 'ターミナルベル' }).show()
+      }
     } else if (m.type === 'progress-update') {
       // A-1: OSC 9;4 ConEmu progress bar
       const state = typeof m.state === 'number' ? m.state : 0
@@ -441,7 +445,7 @@ ipcMain.handle('pty:save-scrollback', async (_, text: string) => {
   return null
 })
 
-// IPC handler — Process Viewer (A-1)
+// IPC handler — Process Viewer (A-1) + kill signal (A-2 Phase 14)
 // Uses async exec (non-blocking main process) with structured PowerShell output
 ipcMain.handle('process:list', async () => {
   try {
@@ -449,19 +453,33 @@ ipcMain.handle('process:list', async () => {
       'powershell.exe -NoProfile -NonInteractive -Command ' +
       '"Get-Process | Select-Object ' +
       "@{n='name';e={$_.Name}}," +
+      "@{n='pid';e={$_.Id}}," +
       "@{n='cpu';e={[Math]::Round($_.CPU,2)}}," +
       "@{n='memMb';e={[Math]::Round($_.WorkingSet64/1MB,1)}} " +
-      '| Sort-Object memMb -Descending | Select-Object -First 60 ' +
+      '| Sort-Object memMb -Descending | Select-Object -First 80 ' +
       '| ConvertTo-Json -Compress -AsArray"'
     const { stdout } = await execAsync(cmd, { timeout: 8000 })
     const parsed = JSON.parse(stdout.trim()) as unknown
     if (!Array.isArray(parsed)) return []
     return parsed.filter(
-      (p): p is { name: string; cpu: number; memMb: number } =>
+      (p): p is { name: string; pid: number; cpu: number; memMb: number } =>
         typeof p === 'object' && p !== null
     )
   } catch {
     return []
+  }
+})
+
+// IPC handler — Kill process by PID (A-2 Phase 14, Wave Terminal v0.14.5)
+ipcMain.handle('process:kill', async (_, pid: number) => {
+  try {
+    await execAsync(
+      `powershell.exe -NoProfile -NonInteractive -Command "Stop-Process -Id ${pid} -Force -ErrorAction SilentlyContinue"`,
+      { timeout: 5000 }
+    )
+    return true
+  } catch {
+    return false
   }
 })
 

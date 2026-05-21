@@ -3,6 +3,7 @@ import type { IpcRendererEvent } from 'electron'
 
 export interface ProcessInfo {
   name: string
+  pid?: number
   cpu: number
   memMb: number
 }
@@ -138,8 +139,9 @@ const api = {
   // File system
   listDirectory: (dirPath: string): Promise<FileEntry[]> => ipcRenderer.invoke('fs:list-dir', dirPath),
 
-  // Process viewer (A-1)
+  // Process viewer (A-1) + kill (A-2 Phase 14)
   listProcesses: (): Promise<ProcessInfo[]> => ipcRenderer.invoke('process:list'),
+  killProcess: (pid: number): Promise<boolean> => ipcRenderer.invoke('process:kill', pid),
 
   // Chat toggle (A-1 slide-out panel)
   onChatToggle: (cb: () => void) => {

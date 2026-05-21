@@ -1,5 +1,6 @@
 export interface ProcessInfo {
   name: string
+  pid?: number
   cpu: number
   memMb: number
 }
@@ -100,6 +101,7 @@ interface ClauTaminaApi {
   listDirectory(dirPath: string): Promise<FileEntry[]>
 
   listProcesses(): Promise<ProcessInfo[]>
+  killProcess(pid: number): Promise<boolean>
 
   onChatToggle(cb: () => void): () => void
 

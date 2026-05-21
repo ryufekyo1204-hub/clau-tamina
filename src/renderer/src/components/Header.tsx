@@ -169,15 +169,17 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
         </span>
         <span className="header-cost">{formatCost(totalCostUsd)}</span>
         <span className="header-model" style={{ color: 'var(--accent)' }}>Sonnet 4.6</span>
-        {/* A-2: Bell visual indicator */}
+        {/* A-2/A-5: Bell visual indicator with pulse animation */}
         {bellVisible && (
           <span
-            title="ベル"
+            title="ターミナルベル"
             style={{
-              fontSize: '13px',
+              fontSize: '12px',
               color: 'var(--status-warning)',
-              animation: 'bell-fade 3s ease-out forwards',
-              pointerEvents: 'none'
+              animation: 'bell-pulse 3s ease-out forwards',
+              pointerEvents: 'none',
+              display: 'inline-flex',
+              alignItems: 'center'
             }}
           >
             🔔
@@ -210,6 +212,13 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
         @keyframes progress-indeterminate {
           0%   { background-position: -200% center; }
           100% { background-position: 200% center; }
+        }
+        @keyframes bell-pulse {
+          0%   { opacity: 1; transform: scale(1.2); }
+          15%  { transform: scale(0.9) rotate(-8deg); }
+          30%  { transform: scale(1.05) rotate(6deg); }
+          50%  { transform: scale(1); }
+          100% { opacity: 0; transform: scale(0.8); }
         }
         .app-header {
           height: 36px;

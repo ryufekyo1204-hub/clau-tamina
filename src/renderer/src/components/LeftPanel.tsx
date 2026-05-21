@@ -22,6 +22,13 @@ interface TabBadge {
   color?: string
 }
 
+// A-4 (Phase 14): Tab context menu state (Wave Terminal B-3)
+interface ContextMenu {
+  tab: LeftTab
+  x: number
+  y: number
+}
+
 export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: LeftPanelProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState<LeftTab>('terminal')
   // A-2: F2 tab rename
@@ -31,6 +38,8 @@ export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: Le
   const editInputRef = useRef<HTMLInputElement>(null)
   // A-1: tab badge (OSC 9999 + bell)
   const [tabBadge, setTabBadge] = useState<TabBadge | null>(null)
+  // A-4 (Phase 14): tab context menu (Wave Terminal B-3)
+  const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
 
   // Load persisted tab labels on mount
   useEffect(() => {
@@ -88,6 +97,21 @@ export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: Le
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [activeTab, editingTabId, startEditing])
 
+  // A-4 (Phase 14): close context menu on outside click / Escape
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent) { if (e.key === 'Escape') setContextMenu(null) }
+      else setContextMenu(null)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', close)
+    }
+  }, [contextMenu])
+
   const commitEdit = useCallback(() => {
     if (editingTabId === null) return
     const trimmed = editingValue.trim()
@@ -140,6 +164,10 @@ export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: Le
               if (tab === 'terminal') setTabBadge(null)
             }}
             onDoubleClick={() => startEditing(tab)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setContextMenu({ tab, x: e.clientX, y: e.clientY })
+            }}
           >
             {editingTabId === tab ? (
               <input
@@ -237,6 +265,74 @@ export function LeftPanel({ terminalPane, tabBarOrientation = 'horizontal' }: Le
           <SessionList orientation="vertical" />
         </div>
       )}
+
+      {/* A-4 (Phase 14): Tab context menu (Wave Terminal B-3) */}
+      {contextMenu && (
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            zIndex: 9000,
+            background: 'var(--app-bg-elevated)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-md)',
+            minWidth: '140px',
+            padding: '4px 0',
+            animation: 'ctx-fade 0.08s ease-out'
+          }}
+        >
+          {[
+            {
+              label: 'リネーム',
+              action: () => { startEditing(contextMenu.tab); setContextMenu(null) }
+            },
+            {
+              label: 'デフォルトに戻す',
+              action: () => {
+                const updated = { ...tabLabels }
+                delete updated[contextMenu.tab]
+                setTabLabels(updated)
+                window.api.setSetting('tabLabels', updated).catch(() => { /* ignore */ })
+                setContextMenu(null)
+              }
+            },
+            ...(contextMenu.tab === 'terminal' && tabBadge !== null
+              ? [{ label: 'バッジをクリア', action: () => { setTabBadge(null); setContextMenu(null) } }]
+              : [])
+          ].map(({ label, action }) => (
+            <button
+              key={label}
+              onClick={action}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '6px 14px',
+                background: 'transparent',
+                border: 'none',
+                textAlign: 'left',
+                color: 'var(--text-primary)',
+                fontSize: 'var(--text-sm)',
+                fontFamily: 'var(--font-ui)',
+                cursor: 'pointer',
+                transition: 'background 0.1s'
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--app-bg-hover)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      <style>{`
+        @keyframes ctx-fade {
+          from { opacity: 0; transform: scale(0.96) translateY(-2px); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }

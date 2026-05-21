@@ -1,9 +1,105 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useId } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import mermaid from 'mermaid'
 import { useSessionStore, type ChatMessage } from '../store/session'
 
 const COLLAPSE_THRESHOLD = 300
+
+// A-3 (Phase 14): Mermaid diagram renderer (Warp/Wave Terminal inspired)
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    background: '#1c1c1a',
+    primaryColor: '#d97757',
+    primaryTextColor: '#f2ede4',
+    primaryBorderColor: '#3a3a37',
+    lineColor: '#a09b95',
+    secondaryColor: '#1c1c1a',
+    tertiaryColor: '#111110',
+    fontFamily: '"Inter", system-ui, sans-serif',
+    fontSize: '13px',
+    nodeBorder: '#d97757',
+    clusterBkg: '#1c1c1a',
+    titleColor: '#f2ede4',
+    edgeLabelBackground: '#111110',
+    activeTaskBkgColor: '#d97757',
+    activeTaskBorderColor: '#e8895a'
+  },
+  securityLevel: 'loose'
+})
+
+function MermaidBlock({ code }: { code: string }): React.ReactElement {
+  const id = useId().replace(/:/g, '')
+  const [svg, setSvg] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const render = async () => {
+      try {
+        const { svg: rendered } = await mermaid.render(`mermaid-${id}`, code)
+        if (!cancelled) setSvg(rendered)
+      } catch (err) {
+        if (!cancelled) setError(String(err))
+      }
+    }
+    void render()
+    return () => { cancelled = true }
+  }, [code, id])
+
+  if (error) {
+    return (
+      <div
+        style={{
+          padding: '8px 12px',
+          background: 'rgba(229,77,46,0.08)',
+          border: '1px solid rgba(229,77,46,0.3)',
+          borderRadius: 'var(--radius-md)',
+          color: 'var(--status-error)',
+          fontSize: 'var(--text-xs)',
+          fontFamily: 'var(--font-mono)',
+          marginBottom: '8px'
+        }}
+      >
+        Mermaid エラー: {error}
+      </div>
+    )
+  }
+
+  if (!svg) {
+    return (
+      <div
+        style={{
+          padding: '12px',
+          textAlign: 'center',
+          color: 'var(--text-muted)',
+          fontSize: 'var(--text-xs)',
+          fontFamily: 'var(--font-mono)'
+        }}
+      >
+        ...
+      </div>
+    )
+  }
+
+  return (
+    <div
+      style={{
+        padding: '12px',
+        background: 'var(--app-bg-elevated)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-md)',
+        marginBottom: '8px',
+        overflowX: 'auto',
+        textAlign: 'center'
+      }}
+      // eslint-disable-next-line react/no-danger
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  )
+}
 
 function CopyButton({ text }: { text: string }): React.ReactElement {
   const [copied, setCopied] = useState(false)
@@ -43,6 +139,10 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
   code({ className, children, ...props }) {
     const isBlock = className?.startsWith('language-') || String(children).includes('\n')
     const text = String(children).replace(/\n$/, '')
+    // A-3 (Phase 14): Mermaid diagram rendering
+    if (className === 'language-mermaid') {
+      return <MermaidBlock code={text} />
+    }
     if (isBlock) {
       return (
         <div style={{ position: 'relative', marginBottom: '8px' }}>
