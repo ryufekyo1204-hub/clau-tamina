@@ -36,6 +36,9 @@ export function TerminalPane(): React.ReactElement {
   // A-1: split ratio preset buttons (Wave Terminal v0.14.5 showsplitbuttons)
   const splitRatio = useSessionStore((s) => s.splitRatio)
   const setSplitRatio = useSessionStore((s) => s.setSplitRatio)
+  // A-4 (Phase 16): selection copy state
+  const [hasSelection, setHasSelection] = useState(false)
+  const [selCopied, setSelCopied] = useState(false)
 
   // A-5: save scrollback to file via main process dialog
   const handleSaveScrollback = useCallback(async () => {
@@ -137,6 +140,11 @@ export function TerminalPane(): React.ReactElement {
       termRef.current = term
       fitRef.current = fitAddon
 
+      // A-4 (Phase 16): track text selection for copy button
+      const onSelChange = term.onSelectionChange(() => {
+        setHasSelection(!!term.getSelection())
+      })
+
       // Send keystrokes to PTY
       const onData = term.onData((data) => window.api.ptyInput(data))
 
@@ -157,6 +165,7 @@ export function TerminalPane(): React.ReactElement {
       ro.observe(containerRef.current)
 
       cleanupRef.current = [
+        () => onSelChange.dispose(),
         () => onData.dispose(),
         offPtyData,
         offPtyExit,
@@ -360,6 +369,53 @@ export function TerminalPane(): React.ReactElement {
             </button>
           )
         })}
+        {/* A-4 (Phase 16): Copy selection button */}
+        <button
+          onClick={() => {
+            const sel = termRef.current?.getSelection()
+            if (!sel) return
+            navigator.clipboard.writeText(sel).then(() => {
+              setSelCopied(true)
+              setTimeout(() => setSelCopied(false), 1200)
+            }).catch(() => undefined)
+          }}
+          disabled={!hasSelection}
+          title="選択テキストをコピー"
+          style={{
+            padding: '1px 6px',
+            background: selCopied ? 'var(--accent-subtle)' : 'transparent',
+            border: selCopied ? '1px solid var(--border-accent)' : '1px solid var(--border-subtle)',
+            borderRadius: '3px',
+            color: selCopied ? 'var(--accent)' : hasSelection ? 'var(--text-secondary)' : 'var(--text-muted)',
+            fontSize: 'var(--text-xs)',
+            cursor: hasSelection ? 'pointer' : 'default',
+            fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.03em',
+            opacity: hasSelection ? 1 : 0.4,
+            transition: 'color 0.15s, border-color 0.15s, background 0.15s'
+          }}
+        >
+          {selCopied ? 'COPIED' : 'COPY'}
+        </button>
+        {/* A-4 (Phase 16): CLR (Ctrl+L) button */}
+        <button
+          onClick={() => window.api.ptyInput('\x0C')}
+          title="ターミナルクリア (Ctrl+L)"
+          style={{
+            padding: '1px 6px',
+            background: 'transparent',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '3px',
+            color: 'var(--text-secondary)',
+            fontSize: 'var(--text-xs)',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.03em',
+            transition: 'color 0.15s, border-color 0.15s'
+          }}
+        >
+          CLR
+        </button>
         {/* A-3 (Phase 13): Search toggle button */}
         <button
           onClick={() => setSearchOpen((o) => !o)}

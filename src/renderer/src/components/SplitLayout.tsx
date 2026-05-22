@@ -56,6 +56,7 @@ export function SplitLayout({ left, right, chatVisible = true }: SplitLayoutProp
       {/* Drag handle */}
       <div
         onMouseDown={handleMouseDown}
+        onDoubleClick={() => setSplitRatio(0.5)}
         style={{
           width: '4px',
           flexShrink: 0,
@@ -69,6 +70,7 @@ export function SplitLayout({ left, right, chatVisible = true }: SplitLayoutProp
         onMouseLeave={(e) => {
           if (!isDragging) (e.currentTarget as HTMLDivElement).style.background = 'var(--border-subtle)'
         }}
+        title="ドラッグでリサイズ / ダブルクリックで 50:50 リセット"
       />
 
       {/* Right pane — slide-out panel (A-1) */}

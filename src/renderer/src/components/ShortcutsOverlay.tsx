@@ -18,10 +18,13 @@ const SHORTCUTS: { key: string; desc: string; category: string }[] = [
   // Chat
   { category: 'チャット', key: 'Enter', desc: 'メッセージ送信' },
   { category: 'チャット', key: 'Shift+Enter', desc: '改行' },
+  { category: 'チャット', key: '↑ / ↓', desc: 'プロンプト履歴を呼び出す' },
   { category: 'チャット', key: 'Ctrl+Shift+G', desc: 'チャット内検索' },
+  { category: 'チャット', key: 'Ctrl+Shift+Delete', desc: 'チャット履歴をクリア' },
   { category: 'チャット', key: '! + プロンプト', desc: '並列エージェント起動' },
   // UI
   { category: 'UI', key: 'F2', desc: 'アクティブタブをリネーム' },
+  { category: 'UI', key: 'ダブルクリック(仕切)', desc: 'ペイン比率を 50:50 にリセット' },
   { category: 'UI', key: 'Ctrl+Alt+T', desc: 'Quake Mode (グローバル表示/非表示)' },
   { category: 'UI', key: 'Ctrl+?', desc: 'このショートカット一覧を表示' },
   { category: 'UI', key: 'Esc', desc: 'ダイアログ / 検索バーを閉じる' },

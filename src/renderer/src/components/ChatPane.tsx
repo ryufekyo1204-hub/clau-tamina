@@ -258,6 +258,9 @@ function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
   const isLong = !isUser && msg.content.length > COLLAPSE_THRESHOLD
   const [collapsed, setCollapsed] = React.useState(isLong)
   const lineCount = msg.content.split('\n').length
+  // A-2 (Phase 16): hover copy button state
+  const [hovered, setHovered] = React.useState(false)
+  const [copied, setCopied] = React.useState(false)
 
   // A-4 (Phase 15): format timestamp as HH:mm
   const timeLabel = new Date(msg.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
@@ -265,6 +268,13 @@ function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
   const displayContent = collapsed
     ? msg.content.split('\n').slice(0, 3).join('\n')
     : msg.content
+
+  const handleCopyMessage = () => {
+    navigator.clipboard.writeText(msg.content).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }).catch(() => undefined)
+  }
 
   return (
     <div
@@ -276,6 +286,8 @@ function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
       }}
     >
       <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
           maxWidth: '88%',
           padding: isUser ? '8px 12px' : '0',
@@ -285,9 +297,37 @@ function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
           color: 'var(--text-primary)',
           fontSize: 'var(--text-md)',
           lineHeight: '1.65',
-          wordBreak: 'break-word'
+          wordBreak: 'break-word',
+          position: 'relative'
         }}
       >
+        {/* A-2 (Phase 16): hover copy button for assistant messages */}
+        {!isUser && hovered && (
+          <button
+            onClick={handleCopyMessage}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              padding: '2px 7px',
+              background: copied ? 'var(--accent-subtle)' : 'var(--app-bg-elevated)',
+              border: '1px solid ' + (copied ? 'var(--border-accent)' : 'var(--border-subtle)'),
+              borderRadius: 'var(--radius-sm)',
+              color: copied ? 'var(--accent)' : 'var(--text-muted)',
+              fontSize: 'var(--text-xs)',
+              fontFamily: 'var(--font-mono)',
+              cursor: 'pointer',
+              letterSpacing: 'var(--ls-label)',
+              textTransform: 'uppercase',
+              transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+              zIndex: 2,
+              animation: 'msg-copy-fade 0.1s ease-out'
+            }}
+            title="メッセージ全体をコピー"
+          >
+            {copied ? 'COPIED' : 'COPY'}
+          </button>
+        )}
         <div
           style={{
             position: 'relative',
@@ -438,12 +478,16 @@ export function ChatPane(): React.ReactElement {
     promptSuggestion,
     setPromptSuggestion,
     lastCheckpointUuid,
-    rewindLastExchange
+    rewindLastExchange,
+    clearMessages
   } = useSessionStore()
   const [input, setInput] = useState('')
   const [systemPrompt, setSystemPromptLocal] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // A-1 (Phase 16): prompt history recall
+  const promptHistoryRef = useRef<string[]>([])
+  const historyIdxRef = useRef(-1)
   // A-2 (Phase 15): Chat message search
   const [chatSearchOpen, setChatSearchOpen] = useState(false)
   const [chatSearchQuery, setChatSearchQuery] = useState('')
@@ -480,6 +524,7 @@ export function ChatPane(): React.ReactElement {
   }, [])
 
   // A-2 (Phase 15): Ctrl+Shift+G toggles chat search
+  // A-3 (Phase 16): Ctrl+Shift+Delete clears chat
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'G') {
@@ -488,11 +533,16 @@ export function ChatPane(): React.ReactElement {
       } else if (e.key === 'Escape' && chatSearchOpen) {
         setChatSearchOpen(false)
         setChatSearchQuery('')
+      } else if (e.ctrlKey && e.shiftKey && e.key === 'Delete') {
+        e.preventDefault()
+        clearMessages()
+        promptHistoryRef.current = []
+        historyIdxRef.current = -1
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [chatSearchOpen])
+  }, [chatSearchOpen, clearMessages])
 
   // Focus search input when opened
   useEffect(() => {
@@ -521,6 +571,11 @@ export function ChatPane(): React.ReactElement {
   const submit = () => {
     const prompt = input.trim()
     if (!prompt || isQuerying) return
+
+    // A-1 (Phase 16): push to prompt history, reset index
+    promptHistoryRef.current.unshift(prompt)
+    if (promptHistoryRef.current.length > 50) promptHistoryRef.current.length = 50
+    historyIdxRef.current = -1
 
     // A-3: `!<prompt>` starts a parallel agent instead of normal query
     if (prompt.startsWith('!')) {
@@ -552,6 +607,39 @@ export function ChatPane(): React.ReactElement {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       submit()
+      return
+    }
+    // A-1 (Phase 16): Up/Down arrow key prompt history recall
+    if (e.key === 'ArrowUp') {
+      const history = promptHistoryRef.current
+      if (history.length === 0) return
+      // Only recall history when at start of input or input is empty
+      const ta = textareaRef.current
+      if (ta && ta.selectionStart !== 0 && input !== '') return
+      e.preventDefault()
+      const nextIdx = Math.min(historyIdxRef.current + 1, history.length - 1)
+      historyIdxRef.current = nextIdx
+      setInput(history[nextIdx])
+      // Move cursor to end after state update
+      setTimeout(() => {
+        if (textareaRef.current) {
+          const len = textareaRef.current.value.length
+          textareaRef.current.setSelectionRange(len, len)
+        }
+      }, 0)
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      if (historyIdxRef.current < 0) return
+      e.preventDefault()
+      const nextIdx = historyIdxRef.current - 1
+      historyIdxRef.current = nextIdx
+      if (nextIdx < 0) {
+        setInput('')
+      } else {
+        setInput(promptHistoryRef.current[nextIdx])
+      }
+      return
     }
   }
 
@@ -603,6 +691,33 @@ export function ChatPane(): React.ReactElement {
             />
           )}
         </div>
+        {/* A-3 (Phase 16): Clear chat button */}
+        <button
+          onClick={() => {
+            clearMessages()
+            promptHistoryRef.current = []
+            historyIdxRef.current = -1
+          }}
+          disabled={messages.length === 0}
+          title="チャット履歴をクリア (Ctrl+Shift+Delete)"
+          style={{
+            fontSize: 'var(--text-xs)',
+            color: messages.length > 0 ? 'var(--status-error)' : 'var(--text-muted)',
+            background: 'transparent',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '2px 7px',
+            cursor: messages.length > 0 ? 'pointer' : 'default',
+            fontFamily: 'var(--font-mono)',
+            opacity: messages.length > 0 ? 1 : 0.4,
+            letterSpacing: 'var(--ls-label)',
+            textTransform: 'uppercase',
+            transition: 'color 0.15s, border-color 0.15s',
+            marginRight: '4px'
+          }}
+        >
+          CLR
+        </button>
         <button
           onClick={() => {
             if (messages.length === 0) return
@@ -951,6 +1066,10 @@ export function ChatPane(): React.ReactElement {
         }
         @keyframes scroll-btn-fade {
           from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes msg-copy-fade {
+          from { opacity: 0; transform: translateY(-3px); }
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
