@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useId } from 'react'
+import React, { useCallback, useEffect, useRef, useState, useId } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import mermaid from 'mermaid'
@@ -259,6 +259,9 @@ function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
   const [collapsed, setCollapsed] = React.useState(isLong)
   const lineCount = msg.content.split('\n').length
 
+  // A-4 (Phase 15): format timestamp as HH:mm
+  const timeLabel = new Date(msg.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+
   const displayContent = collapsed
     ? msg.content.split('\n').slice(0, 3).join('\n')
     : msg.content
@@ -322,6 +325,20 @@ function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
           >
             {collapsed ? `…続き (${lineCount}行) ▾` : '▴ 折りたたむ'}
           </button>
+        )}
+        {/* A-4 (Phase 15): Timestamp for assistant messages */}
+        {!isUser && (
+          <div
+            style={{
+              marginTop: '4px',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+              textAlign: 'right'
+            }}
+          >
+            {timeLabel}
+          </div>
         )}
       </div>
     </div>
@@ -427,6 +444,13 @@ export function ChatPane(): React.ReactElement {
   const [systemPrompt, setSystemPromptLocal] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // A-2 (Phase 15): Chat message search
+  const [chatSearchOpen, setChatSearchOpen] = useState(false)
+  const [chatSearchQuery, setChatSearchQuery] = useState('')
+  const chatSearchInputRef = useRef<HTMLInputElement>(null)
+  // A-5 (Phase 15): Scroll-to-bottom sticky button
+  const messagesScrollRef = useRef<HTMLDivElement>(null)
+  const [isAtBottom, setIsAtBottom] = useState(true)
 
   // Wire up SDK message listeners
   useEffect(() => {
@@ -455,10 +479,36 @@ export function ChatPane(): React.ReactElement {
     return offFocusChat
   }, [])
 
-  // Auto-scroll
+  // A-2 (Phase 15): Ctrl+Shift+G toggles chat search
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'G') {
+        e.preventDefault()
+        setChatSearchOpen((o) => !o)
+      } else if (e.key === 'Escape' && chatSearchOpen) {
+        setChatSearchOpen(false)
+        setChatSearchQuery('')
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [chatSearchOpen])
+
+  // Focus search input when opened
+  useEffect(() => {
+    if (chatSearchOpen) setTimeout(() => chatSearchInputRef.current?.focus(), 30)
+  }, [chatSearchOpen])
+
+  // A-5 (Phase 15): Auto-scroll only when already at bottom
+  useEffect(() => {
+    if (isAtBottom) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isAtBottom])
+
+  const handleMessagesScroll = useCallback(() => {
+    const el = messagesScrollRef.current
+    if (!el) return
+    setIsAtBottom(el.scrollTop + el.clientHeight >= el.scrollHeight - 40)
+  }, [])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -512,7 +562,8 @@ export function ChatPane(): React.ReactElement {
         flexDirection: 'column',
         flex: 1,
         background: 'var(--app-bg)',
-        borderLeft: '1px solid var(--border-subtle)'
+        borderLeft: '1px solid var(--border-subtle)',
+        position: 'relative'
       }}
     >
       {/* Panel header */}
@@ -608,16 +659,85 @@ export function ChatPane(): React.ReactElement {
         >
           ＋エージェント
         </button>
+        {/* A-2 (Phase 15): Chat search toggle */}
+        <button
+          onClick={() => setChatSearchOpen((o) => !o)}
+          title="チャット内検索 (Ctrl+Shift+G)"
+          style={{
+            fontSize: 'var(--text-xs)',
+            color: chatSearchOpen ? 'var(--accent)' : 'var(--text-muted)',
+            background: chatSearchOpen ? 'var(--accent-subtle)' : 'transparent',
+            border: '1px solid ' + (chatSearchOpen ? 'var(--border-accent)' : 'var(--border-subtle)'),
+            borderRadius: 'var(--radius-sm)',
+            padding: '2px 7px',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-mono)',
+            transition: 'color 0.15s, border-color 0.15s, background 0.15s'
+          }}
+        >
+          🔍
+        </button>
       </div>
 
-      {/* Messages */}
+      {/* A-2 (Phase 15): Chat search bar */}
+      {chatSearchOpen && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 8px',
+            background: 'var(--app-bg-surface)',
+            borderBottom: '1px solid var(--border-accent)',
+            flexShrink: 0,
+            animation: 'chat-search-fade 0.1s ease-out'
+          }}
+        >
+          <input
+            ref={chatSearchInputRef}
+            type="text"
+            value={chatSearchQuery}
+            onChange={(e) => setChatSearchQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') { setChatSearchOpen(false); setChatSearchQuery('') } }}
+            placeholder="メッセージを検索..."
+            style={{
+              flex: 1,
+              padding: '3px 7px',
+              background: 'var(--app-bg)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-primary)',
+              fontSize: 'var(--text-sm)',
+              fontFamily: 'var(--font-mono)',
+              outline: 'none',
+              maxWidth: '220px'
+            }}
+            onFocus={(e) => { e.target.style.borderColor = 'var(--border-accent)' }}
+            onBlur={(e) => { e.target.style.borderColor = 'var(--border-default)' }}
+          />
+          {chatSearchQuery && (
+            <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+              {messages.filter((m) => m.content.toLowerCase().includes(chatSearchQuery.toLowerCase())).length}件
+            </span>
+          )}
+          <button
+            onClick={() => { setChatSearchOpen(false); setChatSearchQuery('') }}
+            style={{ padding: '2px 6px', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}
+          >✕</button>
+        </div>
+      )}
+
+      {/* Messages — A-5: ref + onScroll for sticky scroll button */}
       <div
+        ref={messagesScrollRef}
+        onScroll={handleMessagesScroll}
         style={{
           flex: 1,
           overflowY: 'auto',
           padding: '12px 0',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          position: 'relative'
         }}
       >
         {messages.length === 0 && (
@@ -641,12 +761,49 @@ export function ChatPane(): React.ReactElement {
             </div>
           </div>
         )}
-        {messages.map((msg) => (
+        {/* A-2 (Phase 15): filter messages by search query */}
+        {(chatSearchQuery
+          ? messages.filter((m) => m.content.toLowerCase().includes(chatSearchQuery.toLowerCase()))
+          : messages
+        ).map((msg) => (
           <MessageBubble key={msg.id} msg={msg} />
         ))}
         <ToolApprovalDialog />
         <div ref={messagesEndRef} />
       </div>
+
+      {/* A-5 (Phase 15): Sticky scroll-to-bottom button */}
+      {!isAtBottom && messages.length > 0 && (
+        <button
+          onClick={() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+            setIsAtBottom(true)
+          }}
+          style={{
+            position: 'absolute',
+            bottom: '140px',
+            right: '12px',
+            width: '28px',
+            height: '28px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--app-bg-elevated)',
+            border: '1px solid var(--border-accent)',
+            color: 'var(--accent)',
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: 'var(--shadow-sm)',
+            transition: 'background 0.15s, border-color 0.15s',
+            animation: 'scroll-btn-fade 0.15s ease-out',
+            zIndex: 10
+          }}
+          title="最新メッセージへ"
+        >
+          ↓
+        </button>
+      )}
 
       {/* A-3 (Phase 12): Conversation rewind button */}
       {lastCheckpointUuid && !isQuerying && messages.length >= 2 && (
@@ -787,6 +944,14 @@ export function ChatPane(): React.ReactElement {
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.3; }
+        }
+        @keyframes chat-search-fade {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes scroll-btn-fade {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

@@ -40,6 +40,7 @@ import { TerminalPane } from './components/Terminal'
 import { ChatPane } from './components/ChatPane'
 import { AgentCards } from './components/AgentCards'
 import { SettingsModal } from './components/SettingsModal'
+import { ShortcutsOverlay } from './components/ShortcutsOverlay'
 import { BrowserPane } from './components/BrowserPane'
 import { RightPanel } from './components/RightPanel'
 import { LeftPanel } from './components/LeftPanel'
@@ -48,6 +49,7 @@ import { useSessionStore } from './store/session'
 export function App(): React.ReactElement {
   const { totalCostUsd, setSplitRatio, setBypassPermissions, setCwd, loadFontSettings } = useSessionStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [chatVisible, setChatVisible] = useState(true)
   const [tabBarOrientation, setTabBarOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
 
@@ -55,6 +57,18 @@ export function App(): React.ReactElement {
   useEffect(() => {
     const off = window.api.onChatToggle(() => setChatVisible((v) => !v))
     return off
+  }, [])
+
+  // A-3 (Phase 15): Ctrl+? opens shortcuts overlay
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === '?') {
+        e.preventDefault()
+        setShortcutsOpen((o) => !o)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
   }, [])
 
   // A-3: OSC 7 CWD auto-tracking from PTY host
@@ -103,6 +117,7 @@ export function App(): React.ReactElement {
         <Header
           totalCostUsd={totalCostUsd}
           onSettingsClick={() => setSettingsOpen(true)}
+          onShortcutsClick={() => setShortcutsOpen(true)}
           chatVisible={chatVisible}
           onChatToggle={() => setChatVisible((v) => !v)}
         />
@@ -126,6 +141,7 @@ export function App(): React.ReactElement {
       <ErrorBoundary><AgentCards /></ErrorBoundary>
       <StatusBar />
       <SettingsModal open={settingsOpen} onClose={handleSettingsClose} />
+      <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   )
 }

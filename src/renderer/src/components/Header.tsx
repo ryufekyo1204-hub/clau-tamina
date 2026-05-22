@@ -5,11 +5,12 @@ import { SessionList } from './SessionList'
 interface HeaderProps {
   totalCostUsd: number
   onSettingsClick: () => void
+  onShortcutsClick?: () => void
   chatVisible?: boolean
   onChatToggle?: () => void
 }
 
-export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onChatToggle }: HeaderProps): React.ReactElement {
+export function Header({ totalCostUsd, onSettingsClick, onShortcutsClick, chatVisible = true, onChatToggle }: HeaderProps): React.ReactElement {
   const { bypassPermissions, setBypassPermissions, totalInputTokens, totalOutputTokens, parallelAgents } = useSessionStore()
 
   // A-2: Bell visual indicator
@@ -199,6 +200,15 @@ export function Header({ totalCostUsd, onSettingsClick, chatVisible = true, onCh
             ≡
           </button>
         )}
+        {/* A-3 (Phase 15): Shortcuts help button */}
+        <button
+          className="settings-btn"
+          onClick={onShortcutsClick}
+          title="キーボードショートカット (Ctrl+?)"
+          style={{ fontSize: '11px', fontWeight: 700 }}
+        >
+          ?
+        </button>
         <button
           className="settings-btn"
           onClick={onSettingsClick}

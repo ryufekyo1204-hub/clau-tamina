@@ -208,7 +208,10 @@ const api = {
 
   // A-4 (Phase 13): Chat export to Markdown
   exportChat: (content: string): Promise<string | null> =>
-    ipcRenderer.invoke('chat:export', content)
+    ipcRenderer.invoke('chat:export', content),
+
+  // A-1 (Phase 15): Open URL in default browser (for web-links addon)
+  openExternal: (url: string): void => ipcRenderer.send('shell:open-external', url)
 }
 
 contextBridge.exposeInMainWorld('api', api)

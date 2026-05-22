@@ -134,6 +134,9 @@ interface ClauTaminaApi {
 
   // A-4 (Phase 13): Chat export to Markdown
   exportChat(content: string): Promise<string | null>
+
+  // A-1 (Phase 15): Open URL in default browser
+  openExternal(url: string): void
 }
 
 declare global {

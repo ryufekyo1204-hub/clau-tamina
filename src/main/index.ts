@@ -483,6 +483,11 @@ ipcMain.handle('process:kill', async (_, pid: number) => {
   }
 })
 
+// IPC handler — Open external URL in default browser (A-1 Phase 15)
+ipcMain.on('shell:open-external', (_, url: string) => {
+  void shell.openExternal(url)
+})
+
 // IPC handler — Chat export to Markdown (A-4)
 ipcMain.handle('chat:export', async (_, content: string) => {
   try {

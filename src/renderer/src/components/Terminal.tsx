@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { SearchAddon } from '@xterm/addon-search'
+import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { useSessionStore } from '../store/session'
 
@@ -113,6 +114,12 @@ export function TerminalPane(): React.ReactElement {
       const searchAddon = new SearchAddon()
       term.loadAddon(searchAddon)
       searchAddonRef.current = searchAddon
+
+      // A-1 (Phase 15): Web Links addon — Ctrl+Click opens URLs in default browser
+      const webLinksAddon = new WebLinksAddon((_, url) => {
+        window.api.openExternal(url)
+      })
+      term.loadAddon(webLinksAddon)
 
       // WebGL addon — fallback to canvas on unsupported environments
       try {
