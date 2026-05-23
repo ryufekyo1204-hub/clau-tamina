@@ -35,6 +35,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
   const [cwdColorMap, setCwdColorMapState] = useState<Record<string, string>>({})
   // A-5 (Phase 13): custom system prompt
   const [systemPrompt, setSystemPromptState] = useState('')
+  // A-5 (Phase 17): terminal scrollback buffer size
+  const [scrollbackLines, setScrollbackLinesState] = useState<number>(5000)
   // A-1 (Phase 10): Claude Code hooks
   const [hooksInstalled, setHooksInstalled] = useState<boolean | null>(null)
   const [hooksLoading, setHooksLoading] = useState(false)
@@ -58,6 +60,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
         setMaxBudgetUsdState(s.maxBudgetUsd ?? 0)
         setCwdColorMapState(s.cwdColorMap ?? {})
         setSystemPromptState(s.systemPrompt ?? '')
+        setScrollbackLinesState(s.scrollbackLines ?? 5000)
       })
       window.api.checkClaudeHooks().then(setHooksInstalled).catch(() => setHooksInstalled(false))
     }
@@ -355,6 +358,44 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.Reac
                     {cursorBlink ? 'オン' : 'オフ'}
                   </button>
                 </div>
+              </div>
+
+              {/* A-5 (Phase 17): Scrollback buffer size */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                    スクロールバック行数
+                  </span>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    次回起動時に反映
+                  </span>
+                </div>
+                <select
+                  value={scrollbackLines}
+                  onChange={(e) => {
+                    const v = Number(e.target.value)
+                    setScrollbackLinesState(v)
+                    void window.api.setSetting('scrollbackLines', v)
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    background: 'var(--app-bg-surface)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: 'var(--text-sm)',
+                    fontFamily: 'var(--font-mono)',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => { e.target.style.borderColor = 'var(--border-accent)' }}
+                  onBlur={(e) => { e.target.style.borderColor = 'var(--border-default)' }}
+                >
+                  {[1000, 3000, 5000, 10000, 30000].map((n) => (
+                    <option key={n} value={n}>{n.toLocaleString()} 行</option>
+                  ))}
+                </select>
               </div>
             </div>
           )}

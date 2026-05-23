@@ -101,7 +101,7 @@ function MermaidBlock({ code }: { code: string }): React.ReactElement {
   )
 }
 
-function CopyButton({ text }: { text: string }): React.ReactElement {
+function CopyButton({ text, rightOffset = '6px' }: { text: string; rightOffset?: string }): React.ReactElement {
   const [copied, setCopied] = useState(false)
   const copy = () => {
     navigator.clipboard.writeText(text).then(() => {
@@ -115,7 +115,7 @@ function CopyButton({ text }: { text: string }): React.ReactElement {
       style={{
         position: 'absolute',
         top: '6px',
-        right: '6px',
+        right: rightOffset,
         padding: '2px 7px',
         background: copied ? 'var(--accent-subtle)' : 'var(--app-bg)',
         border: '1px solid ' + (copied ? 'var(--border-accent)' : 'var(--border-subtle)'),
@@ -135,6 +135,44 @@ function CopyButton({ text }: { text: string }): React.ReactElement {
   )
 }
 
+// A-2 (Phase 17): "→TERM" button — paste code block content to terminal (no auto-execute)
+function TermButton({ text }: { text: string }): React.ReactElement {
+  const [pasted, setPasted] = useState(false)
+  const paste = () => {
+    window.api.ptyInput(text)
+    setPasted(true)
+    setTimeout(() => setPasted(false), 1500)
+  }
+  return (
+    <button
+      onClick={paste}
+      title="ターミナルに貼り付け（実行は Enter で）"
+      style={{
+        position: 'absolute',
+        top: '6px',
+        right: '58px',
+        padding: '2px 7px',
+        background: pasted ? 'rgba(88,193,66,0.12)' : 'var(--app-bg)',
+        border: '1px solid ' + (pasted ? 'rgba(88,193,66,0.5)' : 'var(--border-subtle)'),
+        borderRadius: 'var(--radius-sm)',
+        color: pasted ? 'var(--status-running)' : 'var(--text-muted)',
+        fontSize: 'var(--text-xs)',
+        fontFamily: 'var(--font-mono)',
+        cursor: 'pointer',
+        letterSpacing: 'var(--ls-label)',
+        textTransform: 'uppercase',
+        transition: 'background 0.15s, border-color 0.15s, color 0.15s',
+        zIndex: 1
+      }}
+    >
+      {pasted ? '→OK' : '→TERM'}
+    </button>
+  )
+}
+
+// A-1 (Phase 17): file path pattern for inline code linkification
+const FILE_PATH_RE = /^(?:\.{1,2}\/)?(?:[\w][\w\-]*\/)+[\w][\w\-.]*\.(?:tsx?|jsx?|py|md|json|css|html|toml|yaml|yml|rs|go|sh|vue|svelte|lock|txt|mjs|cjs)(?::\d+(?::\d+)?)?$/
+
 const mdComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
   code({ className, children, ...props }) {
     const isBlock = className?.startsWith('language-') || String(children).includes('\n')
@@ -146,11 +184,13 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
     if (isBlock) {
       return (
         <div style={{ position: 'relative', marginBottom: '8px' }}>
-          <CopyButton text={text} />
+          {/* A-2 (Phase 17): paste to terminal button */}
+          <TermButton text={text} />
+          <CopyButton text={text} rightOffset="6px" />
           <pre
             style={{
               padding: '10px 12px',
-              paddingRight: '52px',
+              paddingRight: '108px',
               background: 'var(--app-bg-elevated)',
               border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-md)',
@@ -165,6 +205,40 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
             <code {...props} className={className}>{text}</code>
           </pre>
         </div>
+      )
+    }
+    // A-1 (Phase 17): file path linkification for inline code
+    if (!className && FILE_PATH_RE.test(text.trim())) {
+      return (
+        <button
+          onClick={() => window.api.ptyInput(text.trim())}
+          title={`ターミナルに送信: ${text.trim()}`}
+          style={{
+            display: 'inline',
+            padding: '1px 5px',
+            background: 'var(--app-bg-elevated)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.92em',
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--accent)',
+            cursor: 'pointer',
+            textDecoration: 'underline',
+            textDecorationColor: 'var(--border-accent)',
+            textDecorationStyle: 'dotted',
+            transition: 'color 0.15s, border-color 0.15s'
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = 'var(--accent-hover)'
+            ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-accent)'
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = 'var(--accent)'
+            ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-subtle)'
+          }}
+        >
+          {children}
+        </button>
       )
     }
     return (
@@ -366,15 +440,17 @@ function MessageBubble({ msg }: { msg: ChatMessage }): React.ReactElement {
             {collapsed ? `…続き (${lineCount}行) ▾` : '▴ 折りたたむ'}
           </button>
         )}
-        {/* A-4 (Phase 15): Timestamp for assistant messages */}
-        {!isUser && (
+        {/* A-3 (Phase 17): timestamp — hover-only reveal for all messages */}
+        {hovered && (
           <div
             style={{
-              marginTop: '4px',
-              fontSize: 'var(--text-xs)',
+              marginTop: '3px',
+              fontSize: '10px',
               color: 'var(--text-muted)',
               fontFamily: 'var(--font-mono)',
-              textAlign: 'right'
+              textAlign: isUser ? 'right' : 'left',
+              opacity: 0,
+              animation: 'ts-fade 0.15s ease-out forwards'
             }}
           >
             {timeLabel}
@@ -1071,6 +1147,10 @@ export function ChatPane(): React.ReactElement {
         @keyframes msg-copy-fade {
           from { opacity: 0; transform: translateY(-3px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes ts-fade {
+          from { opacity: 0; }
+          to   { opacity: 1; }
         }
       `}</style>
     </div>

@@ -66,10 +66,12 @@ export function TerminalPane(): React.ReactElement {
     const setup = async () => {
       let cursorStyle: 'block' | 'bar' | 'underline' = 'block'
       let cursorBlink = true
+      let scrollback = 5000
       try {
         const s = await window.api.getSettings()
         cursorStyle = s.cursorStyle ?? 'block'
         cursorBlink = s.cursorBlink ?? true
+        scrollback = s.scrollbackLines ?? 5000
       } catch {
         // use defaults
       }
@@ -80,6 +82,7 @@ export function TerminalPane(): React.ReactElement {
         convertEol: true,
         cursorBlink,
         cursorStyle,
+        scrollback,
         fontFamily: fontFamilyTerminal,
         fontSize: fontSizeTerminal,
         lineHeight: 1.2,

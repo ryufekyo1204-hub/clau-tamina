@@ -10,6 +10,8 @@ const SHORTCUTS: { key: string; desc: string; category: string }[] = [
   { category: 'ナビゲーション', key: 'Ctrl+Shift+H', desc: 'ターミナルにフォーカス' },
   { category: 'ナビゲーション', key: 'Ctrl+Shift+L', desc: 'チャットにフォーカス' },
   { category: 'ナビゲーション', key: 'Ctrl+Shift+A', desc: 'チャットパネル 表示/非表示' },
+  { category: 'ナビゲーション', key: 'Ctrl+Shift+B', desc: 'ブラウザタブに切り替え' },
+  { category: 'ナビゲーション', key: 'Ctrl+Shift+C', desc: 'Claude AI タブに切り替え' },
   // Terminal
   { category: 'ターミナル', key: 'Ctrl+Shift+F', desc: 'ターミナル内検索' },
   { category: 'ターミナル', key: 'Ctrl+Shift+M', desc: 'ターミナル最大化 (Block Magnify)' },

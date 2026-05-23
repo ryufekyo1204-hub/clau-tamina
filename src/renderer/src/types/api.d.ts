@@ -28,6 +28,7 @@ export interface ApiSettings {
   maxBudgetUsd?: number
   cwdColorMap?: Record<string, string>
   systemPrompt?: string
+  scrollbackLines?: number
 }
 
 export interface SdkMessage {
